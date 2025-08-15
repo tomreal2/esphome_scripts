@@ -1,0 +1,80 @@
+esphome:
+  name: mobile_02
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 02 Fallback Hotspot"
+    password: "UFbOsy9ExZYW"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+#esp32_ble_tracker:
+
+switch:
+  - platform: gpio
+    name: "Basement_Fan"
+    pin: 2
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: gpio
+    name: "Basement_Humidifier"
+    pin: 15
+    restore_mode: RESTORE_DEFAULT_OFF
+    
+sensor:
+  - platform: dht
+    pin: 32
+    temperature:
+      name: "Temperature2_2"
+      unit_of_measurement: "°F"
+      filters:
+        - lambda: return x * (9.0/5.0) + 32.0;
+    humidity:
+      name: "Humidity2_2"
+      filters:
+        - lambda: return x + 1.0;
+    update_interval: 10s
+    model: DHT22
+#  - platform: ruuvitag
+#    mac_address: D5:9D:26:85:E2:74
+#    humidity:
+#      name: "Ruuvi Humidity 1"
+#    temperature:
+#      name: "Ruuvi Temperature 1"
+#      unit_of_measurement: "°F"
+#      filters:
+#        - lambda: return x * (9.0/5.0) + 32.0;
+#    pressure:
+#      name: "Ruuvi Pressure 1"
+#    acceleration:
+#      name: "Ruuvi Acceleration 1"
+#    acceleration_x:
+#      name: "Ruuvi Acceleration X 1"
+#    acceleration_y:
+#      name: "Ruuvi Acceleration Y 1"
+#    acceleration_z:
+#      name: "Ruuvi Acceleration Z 1"
+#    battery_voltage:
+#      name: "Ruuvi Battery Level 1"
+#      unit_of_measurement: '%'
+#      filters:
+#        - lambda: return ((x / 3.30) * 100.00);   
+#    tx_power:
+#      name: "Ruuvi TX Power 1"
+#    movement_counter:
+#      name: "Ruuvi Movement Counter 1"
+#    measurement_sequence_number:
+#      name: "Ruuvi Measurement Sequence Number 1"

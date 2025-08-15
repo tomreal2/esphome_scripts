@@ -1,0 +1,332 @@
+substitutions:
+  mobilenum: "11"
+  target_max_vpd: "1.2"
+  target_min_vpd: "0.8"
+  heat_min: "74"
+  sensor_sda: "32"
+  sensor_scl: "33"
+  light_pin: "27"
+  fan_pin: "26"
+  humidifier_pin: "25"
+  heatingpad_pin: "14"
+
+esphome:
+  name: mobile-${mobilenum}
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: setfan_${mobilenum}
+    - script.execute: setlight_${mobilenum}
+    - script.execute: turn_off_humidifier
+    
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 11 Fallback Hotspot"
+    password: "PP3o7Z1smMti"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+globals:
+  - id: "hour_on_${mobilenum}"
+    initial_value: "10"  # 0-24
+    type: int
+    restore_value: yes
+  - id: "hour_off_${mobilenum}"
+    initial_value: "22"   # 0-24
+    type: int
+    restore_value: yes
+  - id: "max_temperature_${mobilenum}"
+    initial_value: "79.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature_${mobilenum}"
+    initial_value: "63.0"
+    type: float
+    restore_value: no
+  - id: "target_humidity_${mobilenum}"
+    initial_value: "0.0" #"58.0"
+    type: float
+    restore_value: no
+    
+i2c:
+  - id: i2c_sensor
+    sda: ${sensor_sda}
+    scl: ${sensor_scl}
+    scan: True
+     
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature_${mobilenum}"
+      name: "Temperature${mobilenum}"
+    humidity:
+      id: "idhumidity_${mobilenum}"
+      name: "Humidity${mobilenum}"
+      accuracy_decimals: 1
+    address: 0x44
+    update_interval: 3s
+  - platform: template
+    name: "Target Humidity ${mobilenum}"
+    id: "targethumidity_${mobilenum}"
+    lambda: "return id(target_humidity_${mobilenum});"
+    update_interval: 3s
+  - platform: template
+    name: "VPD ${mobilenum}"
+    id: "vpd_${mobilenum}"
+    lambda: |-
+      float temp = id(idtemperature_${mobilenum}).state;
+      float hum  = id(idhumidity_${mobilenum}).state;
+      return ((6.1078*exp(17.08085*temp/(234.175+temp)))-(6.1078*exp(17.08085*temp/(234.175+temp))*(hum/100)))/10;
+    update_interval: 3s
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 2
+  - platform: homeassistant
+    id: on_time_sensor_${mobilenum}
+    entity_id: input_number.hour_lights_on_cab
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_on_${mobilenum}) != int(x);'
+          then:
+            - logger.log:
+                level: DEBUG
+                format: 'Light ON time changed from %d to %d'
+                args: ['id(hour_on_${mobilenum})', 'int(x)']
+            - globals.set:
+                id: hour_on_${mobilenum}
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_${mobilenum}
+  - platform: homeassistant
+    id: off_time_sensor_${mobilenum}
+    entity_id: input_number.hour_lights_off_cab
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_off_${mobilenum}) != int(x);'
+          then:
+            - globals.set:
+                id: hour_off_${mobilenum}
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_${mobilenum}
+
+            
+    
+switch:
+  - platform: gpio
+    name: "Light_${mobilenum}"
+    id: "idlight_${mobilenum}"
+    pin: ${light_pin}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Fan_${mobilenum}"
+    id: "idfan_${mobilenum}"
+    pin: ${fan_pin}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Humidifier_${mobilenum}"
+    id: "idhumidifier_${mobilenum}"
+    pin: ${humidifier_pin}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "HeatingPad_${mobilenum}"
+    id: "idheatingpad_${mobilenum}"
+    pin: ${heatingpad_pin}
+    restore_mode: ALWAYS_OFF
+    
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute check fan, light, work light
+      - seconds: /3 # /5 # /15 #30 # /30 # 0
+        #minutes: /1
+        then:
+          - script.execute: setlight_${mobilenum}
+          - script.execute: setfan_${mobilenum}
+          - script.execute: set_humidifier
+          - script.execute: setheatingpad_${mobilenum}
+              
+script:
+  - id: setheatingpad_${mobilenum}
+    then:    
+      - if:
+          condition:
+            lambda: |-
+              float temp = (id(idtemperature_${mobilenum}).state * 1.8) + 32;
+              return (temp < ${heat_min}); //72
+          then:
+            - if:
+                condition:
+                  switch.is_off: idheatingpad_${mobilenum}
+                then:
+                  - switch.turn_on: idheatingpad_${mobilenum}
+          else:
+            - if:
+                condition:
+                  switch.is_on: idheatingpad_${mobilenum}
+                then:
+                  - switch.turn_off: idheatingpad_${mobilenum}
+  - id: setfan_${mobilenum}
+    then:    
+      - if:
+          condition:
+            lambda: "return !(id(hour_off_${mobilenum}) == 0 && id(hour_on_${mobilenum}) == 0);"
+          then:
+            # fan
+            - if:
+                condition:
+                  lambda: |-
+                    float temp =    (id(idtemperature_${mobilenum}).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_${mobilenum});
+                    float mintemp = id(min_temperature_${mobilenum});
+                    float vpd = id(vpd_${mobilenum}).state;
+                    
+                    float targetVPD = ${target_min_vpd}; //1.10;
+                    
+                    //VEG = 0.80 - 1.0
+                    //float targetVPD = (0.80 + 0.02); //VEG fan
+                    
+                    //FL  = 1.0 - 1.2
+                    //float targetVPD = (1.0 + 0.02); //FL fan
+                    
+                    //LATE FL  = 1.2 - 1.6
+                    //float targetVPD = (1.2 + 0.02); //LATE FL fan
+                    
+                    return ( (temp > maxtemp)
+                          || (temp > mintemp && vpd < targetVPD) );
+                then:
+                  - if:
+                      condition:
+                        switch.is_off: idfan_${mobilenum}
+                      then:
+                        - switch.turn_on: idfan_${mobilenum}
+                else:
+                  - if:
+                      condition:
+                        switch.is_on: idfan_${mobilenum}
+                      then:
+                        - switch.turn_off: idfan_${mobilenum}
+  - id: setlight_${mobilenum}
+    then:    
+      - if:
+          condition:
+            lambda: "return !(id(hour_off_${mobilenum}) == 0 && id(hour_on_${mobilenum}) == 0);"
+          then:    
+            # light
+            - if:
+                condition:
+                  lambda: |-
+                    auto time = id(sntp_time).now();
+                    return id(hour_on_${mobilenum}) == id(hour_off_${mobilenum}) ||
+                      ( (time.hour < id(hour_off_${mobilenum}) && time.hour >= id(hour_on_${mobilenum}))
+                        || (time.hour >= id(hour_on_${mobilenum}) && id(hour_off_${mobilenum}) < id(hour_on_${mobilenum}))
+                        || (time.hour < id(hour_off_${mobilenum}) && id(hour_off_${mobilenum}) < id(hour_on_${mobilenum})) );
+                then:
+                  - if:
+                      condition:
+                        switch.is_off: idlight_${mobilenum}
+                      then:
+                        - switch.turn_on: idlight_${mobilenum}
+                else:
+                  - if:
+                      condition:
+                        switch.is_on: idlight_${mobilenum}
+                      then:
+                        - switch.turn_off: idlight_${mobilenum}
+  - id: onoffhourschange_${mobilenum}
+    then:    
+      - if:
+          condition:
+            lambda: "return (id(hour_off_${mobilenum}) == 0 && id(hour_on_${mobilenum}) == 0);"
+          then:
+            - if:
+                condition:
+                  switch.is_on: idhumidifier_${mobilenum}
+                then:
+                  - switch.turn_off: idhumidifier_${mobilenum}
+            - if:
+                condition:
+                  switch.is_on: idlight_${mobilenum}
+                then:
+                  - switch.turn_off: idlight_${mobilenum}
+            - if:
+                condition:
+                  switch.is_on: idfan_${mobilenum}
+                then:
+                  - switch.turn_off: idfan_${mobilenum}
+          else:
+            - script.execute: setfan_${mobilenum}
+            - script.execute: setlight_${mobilenum}
+  - id: set_humidifier
+    then:
+      - if:
+          condition: # lights are scheduled to be on
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return ( !(id(hour_off_${mobilenum}) == 0 && id(hour_on_${mobilenum}) == 0)
+                       && ( (id(hour_on_${mobilenum}) == id(hour_off_${mobilenum}))
+                        || (time.hour < id(hour_off_${mobilenum}) && time.hour >= id(hour_on_${mobilenum}))
+                        || (time.hour >= id(hour_on_${mobilenum}) && id(hour_off_${mobilenum}) < id(hour_on_${mobilenum}))
+                        || (time.hour < id(hour_off_${mobilenum}) && id(hour_off_${mobilenum}) < id(hour_on_${mobilenum})) ) );
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    float vpd = id(vpd_${mobilenum}).state;
+                    float temp =    (id(idtemperature_${mobilenum}).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_${mobilenum});
+                    
+                    float targetVPD = ${target_max_vpd}; //1.20;
+                    float targetVPDfanFight = targetVPD + 0.10; // 1.10;
+                    
+                    //VEG = 0.80 - 1.0 
+                    //float targetVPD = 1.10; // (1.0 + 0.03);  
+                    //float targetVPDfanFight = 1.02; //(0.8 + 0.03);  
+
+                    //FL  = 1.00 - 1.20        
+                    //float targetVPD = (1.20 - 0.03); 
+                    //float targetVPDfanFight =  (1.0 + 0.03); 
+                                       
+                    //LATE FL  = 1.2 - 1.6
+                    //float targetVPD = (1.60 - 0.03);
+                    //float targetVPDfanFight =  (1.2 + 0.03); 
+                    
+                    return ( (vpd > targetVPD)
+                          || (vpd > targetVPDfanFight && temp > maxtemp) );
+                then:
+                  - script.execute: turn_on_humidifier
+                else:
+                  - script.execute: turn_off_humidifier
+          else:
+            - script.execute: turn_off_humidifier
+  - id: turn_on_humidifier
+    then:
+      - if:
+          condition:
+            switch.is_off: idhumidifier_${mobilenum}
+          then:
+            - switch.turn_on: idhumidifier_${mobilenum}
+  - id: turn_off_humidifier
+    then:
+      - if:
+          condition:
+            switch.is_on: idhumidifier_${mobilenum}
+          then:
+            - switch.turn_off: idhumidifier_${mobilenum}

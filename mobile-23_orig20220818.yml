@@ -1,0 +1,101 @@
+substitutions:
+  mobile_num: "23"
+  sensor_sda: "32"
+  sensor_scl: "33"
+  clock_sda: "21"
+  clock_scl: "22"
+  pump_1: "25"
+  pump_2: "26"
+  pump_3: "27"
+  pump_4: "14"
+  #depump_3: "14"
+  
+esphome:
+  name: mobile-${mobile_num}
+  on_boot:
+    then:
+      - wait_until:
+          api.connected:
+      #- logger.log:
+      #    level: DEBUG
+      #    format: 'script.execute: turn_off_all_power'
+      - script.execute: turn_off_all_power
+    
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "c9a56aaf479334bf4825ccefd694a940"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-${mobile_num} Fallback Hotspot"
+    password: "f7aojUO0aoOA"
+
+captive_portal:
+
+    
+
+    
+switch:
+  - platform: gpio
+    name: "Pump4_${mobile_num}" #"power01_${mobile_num}" 
+    id: "idpump4_${mobile_num}" #"idpower01_${mobile_num}" 
+    pin: ${pump_4}
+    restore_mode: ALWAYS_OFF
+#  - platform: gpio
+#    name: "Dehumidifier#_${mobile_num}" #"power01_${mobile_num}" 
+#    id: "iddehumidifier_${mobile_num}" #"idpower01_${mobile_num}" 
+#    pin: ${depump_3}
+#    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Pump1_${mobile_num}" #"power02_${mobile_num}" 
+    id: "idpump1_${mobile_num}" #"idpower02_${mobile_num}" 
+    pin: ${pump_1}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Pump2_${mobile_num}" #"power03_${mobile_num}" 
+    id: "idpump2_${mobile_num}" #"idpower03_${mobile_num}" 
+    pin: ${pump_2}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Pump3_${mobile_num}" #"power04_${mobile_num}" 
+    id: "idpump3_${mobile_num}" #"idpower04_${mobile_num}" 
+    pin: ${pump_3}
+    restore_mode: ALWAYS_OFF
+
+script:
+  - id: turn_off_all_power
+    then:
+      - if:
+          condition:
+            switch.is_on: idpump1_${mobile_num}
+          then:
+            - switch.turn_off: idpump1_${mobile_num}
+      - if:
+          condition:
+            switch.is_on: idpump2_${mobile_num}
+          then:
+            - switch.turn_off: idpump2_${mobile_num}
+      - if:
+          condition:
+            switch.is_on: idpump3_${mobile_num}
+          then:
+            - switch.turn_off: idpump3_${mobile_num}
+      - if:
+          condition:
+            switch.is_on: idpump4_${mobile_num}
+          then:
+            - switch.turn_off: idpump4_${mobile_num}

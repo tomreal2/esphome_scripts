@@ -1,0 +1,172 @@
+esphome:
+  name: mobile_07
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 07 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+i2c:
+  - id: bus_a
+    scl: 16 #2 #pin6 on right #outer wire
+    sda: 4  #15 #pin5 on right
+    scan: True
+  - id: bus_b
+    sda: 22 #pin14  -2nd from top on right
+    scl: 1  #pin13  -3rd from top on right
+    scan: True
+
+    
+font:
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font
+    size: 17
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font2
+    size: 15
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font3
+    size: 12
+    
+globals:
+  - id: "is_burping"
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+   
+switch:
+  - platform: gpio
+    name: "Power_07"
+    id: "idpower_07"
+    pin: 23 #pin15 - top right
+    restore_mode: ALWAYS_OFF
+    
+sensor:
+  - platform: hdc1080 #htu21d
+    i2c_id: bus_a
+    temperature:
+      id: "idtemperature07_1"
+      name: "Temperature07_1"
+    humidity:
+      id: "idhumidity07_1"
+      name: "Humidity07_1"
+    #address: 0x4C #0x21 #0x44
+    update_interval: 30s
+    
+    
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute
+      - seconds: 0
+        minutes: /1
+        then:
+          - if:
+              condition:
+                lambda: "return id(is_burping) == false;"
+              then:
+                - if:
+                    condition:
+                      switch.is_off: idpower_07
+                    then:
+                      - if:
+                          condition:
+                            lambda: 'return id(idhumidity07_1).state > 65.0;' #65
+                          then:
+                            - delay: 2 sec
+                            - switch.turn_on: idpower_07
+                            - delay: 20 sec
+                            - switch.turn_off: idpower_07
+                    else:
+                      - if:
+                          condition:
+                            lambda: 'return id(idhumidity07_1).state <= 65.0;' #65
+                          then:
+                            - switch.turn_off: idpower_07
+                          
+      
+      
+      # Every 1st of Every Month
+      #- cron: '0 0 1 * * *'
+      #  then:
+      
+      # Every Sunday of Every Week
+      #- cron: '0 0 * * 7 *'
+      #  then:
+      
+      # Every Night at Midnight
+      - cron: '0 0 * * * *'
+        then:
+        
+      # Every 8 Hours
+      #- seconds: 0
+      #  minutes: 0
+      #  hours: /8
+      #  then:
+          - if:
+              condition:
+                lambda: 'return id(idhumidity07_1).state > 62.0;'
+              then:
+                - lambda: "id(is_burping) = true;"
+                - delay: 2 sec
+                - switch.turn_on: idpower_07
+                - delay: 15 sec
+                - switch.turn_off: idpower_07
+                - lambda: "id(is_burping) = false;"
+              else:
+                - if:
+                    condition:
+                      lambda: 'return id(idhumidity07_1).state > 58.0;'
+                    then:
+                      - lambda: "id(is_burping) = true;"
+                      - delay: 1 sec
+                      - switch.turn_on: idpower_07
+                      - delay: 3 sec
+                      - switch.turn_off: idpower_07
+                      - lambda: "id(is_burping) = false;"
+                
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    #reset_pin: D0
+    i2c_id: bus_b
+    address: 0x3C
+    #it.print(0, 0, id(roboto_regular_font), "Hello World!");
+    lambda: |-
+      // top center.
+      it.printf(64, 0, id(roboto_regular_font), TextAlign::TOP_CENTER, "Mobile 07");
+      
+      it.printf(0, 38, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Burp 1x Day");
+      
+      // Print time in HH:MM format
+      //it.strftime(0, 60, id(roboto_regular_font), TextAlign::BASELINE_LEFT, "%H:%M", id(sntp_time).now());
+      it.strftime(0, 60, id(roboto_regular_font2), TextAlign::BASELINE_LEFT, "%I:%M %p", id(sntp_time).now());
+
+      // Print humidity
+      if (id(idhumidity07_1).has_state()) {
+        it.printf(127, 23, id(roboto_regular_font), TextAlign::TOP_RIGHT , "%.1f%%", id(idhumidity07_1).state);
+      }
+
+      // Print temperature
+      if (id(idtemperature07_1).has_state()) {
+        it.printf(120, 60, id(roboto_regular_font), TextAlign::BASELINE_RIGHT , "%.1f°", (id(idtemperature07_1).state * (9.0/5.0) + 32.0));
+      }
+      

@@ -1,0 +1,79 @@
+esphome:
+  name: mobile_12
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: turn_off_power
+    
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 12 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+switch:
+  - platform: gpio
+    name: "Power_12"
+    id: "idpower_12"
+    pin: 23 #pin15 - top right
+    restore_mode: ALWAYS_OFF
+    
+
+       
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time: 
+      - seconds: 0
+        minutes: 0
+        hours: 12
+        then: # noon
+          - script.execute: spin_plant_12
+
+    
+script:
+  - id: spin_plant_12
+    then:
+      - if:
+          condition:
+            lambda: |-
+                    auto time = id(sntp_time).now();
+                    // (n % 2 == 0) ? cout << n << " is even." :  cout << n << " is odd.";
+                    return ( (time.day_of_month % 2 == 0) ? true :  false );
+          then:
+            - script.execute: turn_on_power
+            - delay: 15s
+            - script.execute: turn_off_power
+          else:
+            - script.execute: turn_on_power
+            - delay: 7s
+            - script.execute: turn_off_power
+  - id: turn_on_power
+    then:
+      - if:
+          condition:
+            switch.is_off: idpower_12
+          then:
+            - switch.turn_on: idpower_12
+  - id: turn_off_power
+    then:
+      - if:
+          condition:
+            switch.is_on: idpower_12
+          then:
+            - switch.turn_off: idpower_12

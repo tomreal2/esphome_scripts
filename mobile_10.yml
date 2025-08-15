@@ -1,0 +1,44 @@
+esphome:
+  name: mobile_10
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 10 Fallback Hotspot"
+    password: "kWHYpukN6OMO"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+
+i2c:
+  - id: bus_a
+    sda: 21
+    scl: 22
+    #sda: 13
+    #scl: 14 #12
+    scan: true
+  
+sensor:
+  - platform: ccs811
+    i2c_id: bus_a
+    eco2:
+      name: "eCO2 10"
+      id: "co2_10"
+    tvoc:
+      name: "Volatile Organic Compound 10"
+      id: "vol_org_compound_10"
+    address: 0x5A
+    update_interval: 5s

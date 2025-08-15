@@ -1,0 +1,71 @@
+esphome:
+  name: mobile-16
+  platform: ESP32
+  board: nodemcu-32s
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "e3859fbff5056da6f4f6b485f6d4c1f1"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-16 Fallback Hotspot"
+    password: "caWOyv62Z4es"
+
+captive_portal:
+
+
+i2c:
+  - id: bus_a
+    sda: 21
+    scl: 22
+    #sda: 13
+    #scl: 14 #12
+    scan: true
+ 
+sensor:
+  - platform: scd30
+    i2c_id: bus_a
+    co2:
+      name: "CO2_16"
+      accuracy_decimals: 1
+    temperature:
+      name: "co2Temperature_16"
+      id: "idtemperature_16"
+      accuracy_decimals: 2
+    humidity:
+      name: "co2Humidity_16"
+      id: "idhumidity_16"
+      accuracy_decimals: 2
+    address: 0x61
+    update_interval: 5s
+  - platform: template
+    name: "VPD 16"
+    id: "vpd_16"
+    lambda: |-
+      float temp = id(idtemperature_16).state;
+      float hum  = id(idhumidity_16).state;
+      return ((6.1078*exp(17.08085*temp/(234.175+temp)))-(6.1078*exp(17.08085*temp/(234.175+temp))*(hum/100)))/10;
+    update_interval: 5s
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 2
+#sensor:
+#  - platform: sht3xd
+#    i2c_id: bus_a
+#    temperature:
+#      id: "idtemperature_16"
+#      name: "Temperature_16"
+#    humidity:
+#      id: "idhumidity_16"
+#      name: "Humidity_16"
+#    address: 0x44
+#    update_interval: 5s

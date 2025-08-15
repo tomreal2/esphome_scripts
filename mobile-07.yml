@@ -1,0 +1,100 @@
+substitutions:
+  mobile_num: "07"
+  turn_on_heat_below: "71.0" 
+  
+esphome:
+  name: mobile_${mobile_num}
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: set_heater_${mobile_num}
+    
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile ${mobile_num} Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+
+switch:
+  - platform: gpio
+    name: "Power_${mobile_num}"
+    id: "idpower_${mobile_num}"
+    pin: 16 # 23 #pin15 - top right
+    restore_mode: ALWAYS_OFF
+    
+i2c:
+  - id: i2c_sensor
+    scl: 4 # 16 #pin6 on right #outer wire
+    sda: 2 # 4  #pin5 on right
+    scan: True
+
+
+
+sensor:
+  - platform: hdc1080
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature${mobile_num}_1"
+      name: "Temperature${mobile_num}_1"
+    humidity:
+      id: "idhumidity${mobile_num}_1"
+      name: "Humidity${mobile_num}_1"
+      accuracy_decimals: 3
+    update_interval: 15s
+
+
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time: 
+      - seconds: /15
+        then: # Every 15 seconds
+          - script.execute: set_heater_${mobile_num}
+
+
+globals:
+  - id: "min_temperature_${mobile_num}"
+    initial_value: "${turn_on_heat_below}"
+    type: float
+    restore_value: no  
+    
+script:
+  - id: set_heater_${mobile_num}
+    then:
+      - if:
+          condition:
+            lambda: 'return ((id(idtemperature${mobile_num}_1).state * 1.8) + 32) < id(min_temperature_${mobile_num});' 
+          then:
+            - script.execute: turn_on_heater
+          else:
+            - script.execute: turn_off_heater
+  - id: turn_on_heater
+    then:
+      - if:
+          condition:
+            - switch.is_off: idpower_${mobile_num}
+          then:
+            - switch.turn_on: idpower_${mobile_num}
+  - id: turn_off_heater
+    then:
+      - if:
+          condition:
+            - switch.is_on: idpower_${mobile_num}
+          then:
+            - switch.turn_off: idpower_${mobile_num}

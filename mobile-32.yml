@@ -1,0 +1,65 @@
+substitutions:
+  mobilenum: "32"
+  sensor_sda: "21"
+  sensor_scl: "22"
+  
+esphome:
+  name: mobile-${mobilenum}
+  friendly_name: mobile-${mobilenum}
+
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "cdD0QWC3oUHgIX/qYLeYeHo4AMYmvoBGmS7mvzgtg8c="
+
+ota:
+  platform: esphome
+  password: "bd372fc8031b48b9ca343d57d6a514a1"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-${mobilenum} Fallback Hotspot"
+    password: "thFhVnT7UF57"
+
+captive_portal:
+    
+i2c:
+  - id: i2c_sensor_${mobilenum}
+    sda: ${sensor_sda}
+    scl: ${sensor_scl}
+    scan: True
+    
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor_${mobilenum}
+    temperature:
+      id: "idtemperature_${mobilenum}"
+      name: "Temperature${mobilenum}"
+    humidity:
+      id: "idhumidity_${mobilenum}"
+      name: "Humidity${mobilenum}"
+      accuracy_decimals: 1
+    update_interval: 3s
+  - platform: template
+    name: "VPD ${mobilenum}"
+    id: "vpd_${mobilenum}"
+    lambda: |-
+      float temp = id(idtemperature_${mobilenum}).state;
+      float hum  = id(idhumidity_${mobilenum}).state;
+      return ((6.1078*exp(17.08085*temp/(234.175+temp)))-(6.1078*exp(17.08085*temp/(234.175+temp))*(hum/100)))/10;
+    update_interval: 5s
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 2

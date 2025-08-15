@@ -1,0 +1,21 @@
+      - type: entities
+        entities:
+          - entity: binary_sensor.light_status_04
+          - entity: switch.fan_04
+          - entity: switch.humidifier_04
+          - entity: sensor.temperature04
+          - entity: sensor.humidity04
+          - entity: input_number.hour_lights_on_04
+          - entity: input_number.hour_lights_off_04
+          - entity: switch.light_04
+          - entity: binary_sensor.fan_status_04
+          - entity: sensor.cl_multisensor_temperature
+          - entity: sensor.cl_multisensor_relative_humidity
+          - entity: binary_sensor.water_sensor01_04
+          - entity: sensor.hours_since_water_01_04
+          - entity: input_number.min_vpd_04
+          - entity: input_number.max_vpd_04
+          - entity: switch.aeon_labs_dsc11_smart_strip_switch_3
+          - entity: sensor.scale_04
+        title: T
+        show_header_toggle: false

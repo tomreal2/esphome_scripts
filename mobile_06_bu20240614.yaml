@@ -1,0 +1,257 @@
+esphome:
+  name: mobile_06
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: set_last_burp_time
+    - switch.turn_off: idpower_06
+    
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 06 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+
+switch:
+  - platform: gpio
+    name: "Power_06"
+    id: "idpower_06"
+    pin: 16
+    restore_mode: ALWAYS_OFF
+    
+i2c:
+  - id: i2c_sensor
+    sda: 14 #pin 5 on left #outer wire
+    scl: 15 #pin 3 on right
+    scan: True
+  - id: i2c_display
+    sda: 1
+    scl: 2
+    scan: True
+
+
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature06_1"
+      name: "Temperature06_1"
+    humidity:
+      id: "idhumidity06_1"
+      name: "Humidity06_1"
+    address: 0x44
+    update_interval: 5s
+  - platform: template
+    name: "Burp_Offset_06"
+    id: "idburpoffset_06"
+    lambda: "return id(burp_offset);"
+    update_interval: 10s
+    accuracy_decimals: 0
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 1
+  - platform: template
+    name: "Last Burp 06"
+    id: "idlastburp_06"
+    lambda: |-
+      auto time = id(sntp_time).now();
+      int lastburptime = id(last_burp_time);
+      int hours_since_last_burp = (id(last_burp_time)==0) ? 0 : ( ((time.timestamp - id(last_burp_time)) / 60) / 60 );
+      return hours_since_last_burp;
+    update_interval: 60s
+    unit_of_measurement: "hrs"
+    accuracy_decimals: 0
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 1
+    
+font:
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font
+    size: 20
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font2
+    size: 15
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font3
+    size: 12
+
+       
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time: 
+      - seconds: 0
+        minutes: /1
+        then: # Every 1 minute
+          - script.execute: periodic_burp_06
+          
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    i2c_id: i2c_display
+    address: 0x3C
+    lambda: |-
+      // top center.
+      it.printf(64, 0, id(roboto_regular_font), TextAlign::TOP_CENTER, "Mobile 06");
+      
+      it.printf(0, 40, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Smarter Burp");
+      
+      // Print time 
+      it.strftime(0, 60, id(roboto_regular_font2), TextAlign::BASELINE_LEFT, "%I:%M %p", id(sntp_time).now());
+
+      // Print humidity
+      if (id(idhumidity06_1).has_state()) {
+        it.printf(127, 23, id(roboto_regular_font), TextAlign::TOP_RIGHT , "%.1f%%", id(idhumidity06_1).state);
+      }
+
+      // Print temperature
+      if (id(idtemperature06_1).has_state()) {
+        it.printf(120, 60, id(roboto_regular_font), TextAlign::BASELINE_RIGHT , "%.1f°", (id(idtemperature06_1).state * (9.0/5.0) + 32.0));
+      }
+
+globals:
+  - id: "is_burping"
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: "burp_offset"
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: "humidity_before_last_burp"
+    type: float
+    restore_value: no
+    initial_value: "0.0"
+  - id: "last_burp_time"
+    type: int
+    restore_value: yes
+    initial_value: "0"
+    
+script:
+  - id: set_last_burp_time
+    then:
+      - lambda: "auto time = id(sntp_time).now(); id(last_burp_time) = time.timestamp;"
+  - id: periodic_burp_06
+    then:
+      - if:
+          condition:
+            lambda: 'return id(idhumidity06_1).state > 63.49;' # 64.0 # 63.75 #Burp above 64.75
+          then:
+            - script.execute: burp_06
+          else:
+            - if:
+                condition:
+                  switch.is_on: idpower_06
+                then:
+                  - switch.turn_off: idpower_06
+                
+  - id: adjust_offset
+    then:
+      - logger.log:
+          level: DEBUG
+          format: 'Adjusting Offset: hum before burp %f and cur hum %f'
+          args: ['id(humidity_before_last_burp)', 'id(idhumidity06_1).state']
+      - lambda: |-
+                float diff = id(humidity_before_last_burp) - id(idhumidity06_1).state;
+                int offset = id(burp_offset);
+                
+                if ( id(idhumidity06_1).state > 65.0 ) {
+                  offset = 2.0;
+                } else if ( diff < 0.2 ) {
+                  offset = offset + 2.0; 
+                } else if ( diff < 0.5 ) {
+                  offset = offset + 1.0; 
+                } else if ( diff > 1.5 ) {
+                  offset = offset - 2.0; 
+                } else if ( diff > 1.0 ) {
+                  offset = offset - 1.0; 
+                }
+                
+                offset = (offset >  2.0) ?  2.0 : offset;
+                offset = (offset < -2.0) ? -2.0 : offset;
+                id(burp_offset) = offset;
+  - id: burp_06
+    then:
+      - if:
+          condition:
+            lambda: 'return id(idhumidity06_1).state > 60.0 && id(burp_offset) == 0;'
+          then:
+            - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity06_1).state;"
+            - script.execute: set_last_burp_time
+            - switch.turn_on: idpower_06
+            - delay: 15 sec
+            - switch.turn_off: idpower_06
+            - lambda: "id(is_burping) = false;"
+            - delay: 41 sec
+            - script.execute: adjust_offset
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(idhumidity06_1).state > 60.0 && id(burp_offset) == 1;'
+                then:
+                  - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity06_1).state;"
+                  - script.execute: set_last_burp_time
+                  - switch.turn_on: idpower_06
+                  - delay: 20 sec
+                  - switch.turn_off: idpower_06
+                  - lambda: "id(is_burping) = false;"
+                  - delay: 36 sec
+                  - script.execute: adjust_offset
+                else:  
+                  - if:
+                      condition:
+                        lambda: 'return id(idhumidity06_1).state > 60.0 && id(burp_offset) == 2;'
+                      then:
+                        - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity06_1).state;"
+                        - script.execute: set_last_burp_time
+                        - switch.turn_on: idpower_06
+                        - delay: 40 sec
+                        - switch.turn_off: idpower_06
+                        - lambda: "id(is_burping) = false;"
+                        - delay: 16 sec
+                        - script.execute: adjust_offset
+                      else:
+                        - if:
+                            condition:
+                              lambda: 'return id(idhumidity06_1).state > 60.0 && id(burp_offset) == -1;'
+                            then:
+                              - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity06_1).state;"
+                              - script.execute: set_last_burp_time
+                              - switch.turn_on: idpower_06
+                              - delay: 10 sec
+                              - switch.turn_off: idpower_06
+                              - lambda: "id(is_burping) = false;"
+                              - delay: 46 sec
+                              - script.execute: adjust_offset
+                            else:
+                              - if:
+                                  condition:
+                                    lambda: 'return id(idhumidity06_1).state > 60.0 && id(burp_offset) == -2;'
+                                  then:
+                                    - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity06_1).state;"
+                                    - script.execute: set_last_burp_time
+                                    - switch.turn_on: idpower_06
+                                    - delay: 2 sec
+                                    - switch.turn_off: idpower_06
+                                    - lambda: "id(is_burping) = false;"
+                                    - delay: 54 sec
+                                    - script.execute: adjust_offset

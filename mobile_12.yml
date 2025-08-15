@@ -1,0 +1,45 @@
+esphome:
+  name: mobile_12
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 12 Fallback Hotspot"
+    password: "PP3o7Z1smMti"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+i2c:
+  - id: i2c_sensor
+    scl: 22 
+    sda: 21 
+    scan: True
+    
+sensor:
+  - platform: bme280 #bme280 bmp280
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature_12"
+      name: "Temperature12"
+      oversampling: 16x
+    humidity:
+      id: "idhumidity_12"
+      name: "Humidity12"
+      accuracy_decimals: 1
+    pressure:
+      name: "Pressure12"
+    address: 0x76 #0x01 #0x76
+    update_interval: 30s

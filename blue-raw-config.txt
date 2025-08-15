@@ -1,0 +1,304 @@
+views:
+  - title: BLUE CL
+    path: blue-cl
+    badges: []
+    cards:
+      - type: entities
+        entities:
+          - entity: sensor.temperature_19
+          - entity: sensor.humidity_19
+          - entity: switch.power_19
+          - entity: sensor.temperature_21
+          - entity: sensor.humidity_21
+          - entity: switch.power_21
+        show_header_toggle: false
+        title: CL Intake Fan
+      - type: gauge
+        entity: sensor.vpd_29
+        min: 0
+        max: 2.1
+        needle: true
+        unit: kPa
+        severity:
+          green: 1.2
+          yellow: 0
+          red: 2
+        name: VPD 29 🟢 1.2-2.0
+      - type: entities
+        entities:
+          - entity: sensor.vpd_29
+          - entity: sensor.temperature_29
+          - entity: sensor.humidity_29
+          - entity: input_boolean.silent_night
+          - entity: switch.light_29
+          - entity: switch.fan_29
+          - entity: switch.humidifier_29
+          - entity: switch.suphur_burner_29
+          - entity: input_number.hour_lights_on_29
+          - entity: input_number.hour_lights_off_29
+          - entity: input_number.min_vpd_29
+          - entity: input_number.max_vpd_29
+          - entity: switch.aeon_labs_dsc11_smart_strip_switch_2
+          - entity: sensor.daily_energy_sonoff_05
+          - entity: sensor.energy_sonoff_05
+          - entity: sensor.power_sonoff_05
+          - entity: switch.switch_sonoff_05
+          - entity: switch.valves_enabled
+          - entity: binary_sensor.leak_sensor_1_leak
+          - entity: binary_sensor.leak_sensor_2_leak
+          - entity: binary_sensor.hum_low_water_26
+        show_header_toggle: false
+        title: mobile-29
+      - type: gauge
+        entity: sensor.ultrasonic_sensor_20
+        min: 0
+        max: 100
+        needle: true
+        severity:
+          green: 35
+          yellow: 20
+          red: 0
+        name: EMPTY  --------- 40 gal res --------- FULL
+      - type: entities
+        entities:
+          - entity: switch.start_fill_4
+          - entity: sensor.fill_minutes_4
+          - entity: switch.pump4_23
+          - entity: input_number.run_time_4_23
+          - entity: binary_sensor.leak_sensor_3_leak
+        show_header_toggle: false
+        title: Fill
+      - type: entities
+        entities:
+          - entity: switch.valves_enabled
+          - entity: switch.valve1_26
+          - entity: switch.valve2_26
+          - entity: switch.valve3_26
+          - entity: switch.valve4_26
+          - entity: input_number.valve1_day_interval_26
+          - entity: input_number.valve2_day_interval_26
+          - entity: input_number.valve3_day_interval_26
+          - entity: input_number.valve4_day_interval_26
+          - entity: input_number.valve1_water_period_hrs_26
+          - entity: input_number.valve2_water_period_hrs_26
+          - entity: input_number.valve3_water_period_hrs_26
+          - entity: input_number.valve4_water_period_hrs_26
+          - entity: sensor.days_until_water_1
+          - entity: sensor.days_until_water_2
+          - entity: sensor.days_until_water_3
+          - entity: sensor.days_until_water_4
+          - entity: binary_sensor.hum_low_water_26
+        show_header_toggle: false
+        title: CL Valves
+      - type: entities
+        entities:
+          - entity: sensor.days_until_water_1
+          - entity: input_number.valve1_water_period_hrs_26
+          - entity: input_number.valve1_day_interval_26
+          - entity: switch.valve1_26
+        show_header_toggle: false
+        title: Valve 1
+  - title: BLUE T CB DR
+    path: blue-t-and-cab
+    badges: []
+    cards:
+      - type: gauge
+        entity: sensor.vpd_11_2
+        min: 0
+        max: 2
+        needle: true
+        unit: kPa
+        severity:
+          green: 1.1
+          yellow: 0
+          red: 1.2
+        name: CAB VPD 1.10
+      - type: entities
+        entities:
+          - entity: switch.light_11_2
+          - entity: sensor.vpd_11_2
+          - entity: switch.fan_11_2
+          - entity: switch.humidifier_11_2
+          - entity: sensor.temperature11_2
+          - entity: sensor.humidity11_2
+          - entity: sensor.cab_multisensor_temperature
+          - entity: sensor.cab_multisensor_relative_humidity
+          - entity: switch.heatingpad_11
+          - entity: input_number.hour_lights_on_cab
+          - entity: input_number.hour_lights_off_cab
+          - entity: switch.aeon_labs_dsc11_smart_strip_switch_4
+        title: 'CAB  (vpd VEG: 1.10)'
+        show_header_toggle: false
+        state_color: true
+      - type: gauge
+        entity: sensor.vpd_04
+        min: 0
+        max: 2
+        needle: true
+        unit: kPa
+        severity:
+          green: 1.3
+          yellow: 0
+          red: 1.6
+        name: T VPD 🟢 1.2-1.6
+      - type: entities
+        entities:
+          - entity: sensor.vpd_04
+          - entity: switch.light_04
+          - entity: sensor.temperature_04
+          - entity: sensor.humidity_04
+          - entity: switch.fan_04
+          - entity: switch.humidifier_04
+          - entity: input_number.hour_lights_on_04
+          - entity: input_number.hour_lights_off_04
+          - entity: input_number.min_vpd_04
+          - entity: input_number.max_vpd_04
+          - entity: switch.switch_sonoff_01
+          - entity: switch.switch_sonoff_04
+          - entity: switch.aeon_labs_dsc11_smart_strip_switch_3
+        title: T-Flower
+        show_header_toggle: false
+      - type: entities
+        entities:
+          - entity: sensor.temperature25
+          - entity: sensor.humidity25
+          - entity: switch.fan_25
+          - entity: switch.humidifier_25
+          - entity: switch.switch_sonoff_03
+          - entity: switch.switch_sonoff_02
+        title: BT-Dry
+        show_header_toggle: false
+      - type: gauge
+        entity: sensor.vpd_30
+        min: 0
+        max: 2.1
+        needle: true
+        unit: kPa
+        severity:
+          green: 1.2
+          yellow: 0
+          red: 2
+        name: VPD 30
+      - type: entities
+        entities:
+          - entity: switch.switch_sonoff_04
+          - entity: sensor.temperature30
+          - entity: sensor.humidity30
+          - entity: switch.smart_energy_switch_5
+          - entity: switch.switch_sonoff_01
+        title: BT-FL
+        show_header_toggle: false
+      - type: entities
+        entities:
+          - entity: sensor.humidity_1
+          - entity: sensor.temperature_1
+          - entity: light.blue_motor_1
+          - entity: light.blue_motor_2
+          - entity: light.blue_motor_3
+          - entity: light.blue_motor_4
+          - entity: light.blue_motor_5
+          - entity: light.blue_motor_6
+          - entity: input_boolean.motor1
+          - entity: input_number.ml_motor1
+          - entity: input_boolean.motor2
+          - entity: input_number.ml_motor2
+          - entity: input_boolean.motor3
+          - entity: input_number.ml_motor3
+          - entity: input_boolean.motor4
+          - entity: input_number.ml_motor4
+          - entity: input_boolean.motor5
+          - entity: input_number.ml_motor5
+          - entity: input_boolean.motor6
+          - entity: input_number.ml_motor6
+          - entity: input_number.calibrate_motor1
+          - entity: input_number.calibrate_motor2
+          - entity: input_number.calibrate_motor3
+          - entity: input_number.calibrate_motor4
+          - entity: input_number.calibrate_motor5
+          - entity: input_number.calibrate_motor6
+        title: Mobile
+        show_header_toggle: false
+  - title: Blue CU
+    path: blue-c
+    badges: []
+    cards:
+      - type: gauge
+        entity: sensor.last_burp_06
+        min: 0
+        max: 48
+        name: Last Burp 06
+        unit: hrs
+        needle: true
+        severity:
+          green: 24
+          yellow: 12
+          red: 0
+      - type: entities
+        entities:
+          - entity: sensor.humidity06_1
+          - entity: sensor.temperature06_1
+          - entity: switch.power_06
+          - entity: sensor.burp_offset_06
+          - entity: sensor.last_burp_06
+        show_header_toggle: false
+        title: HB 2/21
+      - type: gauge
+        entity: sensor.last_burp_08
+        min: 0
+        max: 48
+        name: Last Burp 08
+        unit: hrs
+        needle: true
+        severity:
+          green: 24
+          yellow: 12
+          red: 0
+      - type: entities
+        entities:
+          - entity: sensor.humidity08_1
+          - entity: sensor.temperature08_1
+          - entity: switch.power_08
+          - entity: sensor.burp_offset_08
+        show_header_toggle: false
+        title: SSF 2/24
+      - type: entities
+        entities:
+          - entity: sensor.multisensor_6_air_temperature_3
+          - entity: sensor.multisensor_6_humidity_3
+        title: SOIL Reammend Rollers 2/13
+        show_header_toggle: false
+      - type: entities
+        entities:
+          - entity: sensor.multisensor_attic_temperature
+          - entity: sensor.multisensor_attic_humidity
+        show_header_toggle: false
+        title: SOIL Re-amm Basement 1/21
+      - type: entities
+        entities:
+          - entity: sensor.temperature30
+          - entity: sensor.humidity30
+        show_header_toggle: false
+        title: Basement Air Near Soil
+      - type: entities
+        entities:
+          - entity: sensor.multisensor_6_air_temperature
+          - entity: sensor.temperature15
+          - entity: sensor.multisensor_6_humidity
+          - entity: sensor.humidity15
+          - entity: switch.power_12
+        show_header_toggle: false
+        title: Compost Tumbler
+  - theme: Backend-selected
+    title: Blue Basem
+    path: blue-basement
+    subview: true
+    badges: []
+    cards:
+      - type: entities
+        entities:
+          - entity: sensor.multisensor_6_air_temperature_3
+          - entity: sensor.multisensor_6_humidity_3
+          - entity: switch.smart_energy_switch_5
+        title: Basement Veg
+        show_header_toggle: false
+title: Blue

@@ -1,0 +1,77 @@
+substitutions:
+  mobile_num: "15"
+  sensor_sda: "21"
+  sensor_scl: "22"
+  
+esphome:
+  name: mobile-${mobile_num}
+  platform: ESP32
+  board: nodemcu-32s
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  - platform: esphome
+    password: "33bb68a50589c9edfabce537f854851f"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-${mobile_num} Fallback Hotspot"
+    password: "ASD54MWBKJb4"
+
+captive_portal:
+
+# Example configuration entry
+#dallas:
+#  - pin: GPIO15
+#    update_interval: 5s
+one_wire:
+  - platform: gpio
+    pin: GPIO15
+
+
+i2c:
+  - id: i2c_temphum
+    sda: ${sensor_sda}
+    scl: ${sensor_scl}
+    #scan: True
+    
+sensor:
+  - platform: dallas_temp #dallas
+    address: 0x6e03139794257f28 #0x953de10457f63228 #0x953de10457f63228 #0x6e03139794257f28 #0x953de10457f63228 #0x953de10457f63228 #0x953de10457f63228 #0x953de10457f63228 #0xA40000031F055028 #0x1c0000031edd2a28
+    name: "CAB_Temp_${mobile_num}"
+    id: "temp_cab_${mobile_num}"
+    filters:
+      - filter_out: NAN
+      - lambda: return x + 1.25;
+      #- lambda: return x * (9.0/5.0) + 32.0;
+    #unit_of_measurement: "°F"
+    accuracy_decimals: 1
+  - platform: sht3xd
+    i2c_id: i2c_temphum
+    temperature:
+      id: "idtemperature_${mobile_num}"
+      name: "Temperature_${mobile_num}"
+    humidity:
+      id: "idhumidity_${mobile_num}"
+      name: "Humidity_${mobile_num}"
+    #address: 0x44
+    update_interval: 5s
+  - platform: template
+    name: "VPD ${mobile_num}"
+    id: "vpd_${mobile_num}"
+    lambda: |-
+      float temp = id(idtemperature_${mobile_num}).state;
+      float hum  = id(idhumidity_${mobile_num}).state;
+      return ((6.1078*exp(17.08085*temp/(234.175+temp)))-(6.1078*exp(17.08085*temp/(234.175+temp))*(hum/100)))/10;
+    update_interval: 5s
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 2

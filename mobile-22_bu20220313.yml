@@ -1,0 +1,90 @@
+esphome:
+  name: mobile-22
+  on_boot:
+    then:
+      #  set current system time from the RTC hardware
+      ds1307.read_time:
+        id: ds1307_time
+        
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "c9a56aaf479334bf4825ccefd694a940"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-22 Fallback Hotspot"
+    password: "f7aojUO0aoOA"
+
+captive_portal:
+
+i2c:
+  - id: i2c_sensor
+    scl: 33
+    sda: 32
+    scan: True
+  - id: i2c_clock
+    scl: 22 #13
+    sda: 21 #12
+    scan: True
+    
+time:
+  - platform: ds1307
+    id: ds1307_time
+    i2c_id: i2c_clock
+    address: 0x50 #0x68
+  - platform: homeassistant
+    # instead try to synchronize via network repeatedly ...
+    on_time_sync:
+      then:
+        # set RTC hardware time from the network
+        ds1307.write_time:
+          id: ds1307_time
+          
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature_22"
+      name: "Temperature_22"
+    humidity:
+      id: "idhumidity_22"
+      name: "Humidity_22"
+    address: 0x44
+    update_interval: 5s
+    
+switch:
+  - platform: gpio
+    name: "power01_22" 
+    id: "idpower01_22" 
+    pin: 14
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "power02_22" 
+    id: "idpower02_22" 
+    pin: 27
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "power03_22" 
+    id: "idpower03_22" 
+    pin: 26
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "power04_22" 
+    id: "idpower04_22" 
+    pin: 25
+    restore_mode: ALWAYS_OFF
+

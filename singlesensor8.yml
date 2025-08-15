@@ -1,0 +1,103 @@
+esphome:
+  name: mobile_08
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 08 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+globals:
+  - id: "is_burping_08"
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+    
+    
+sensor:
+  - platform: dht
+    pin: 33
+    temperature:
+      id: "idtemperature_08"
+      name: "Temperature_08"
+      unit_of_measurement: "°C"
+      #filters:
+      #  - lambda: return x * (9.0/5.0) + 32.0;
+    humidity:
+      id: "idhumidity_08"
+      name: "Humidity_08"
+    update_interval: 4s
+    model: DHT22 # AM2302 # DHT22
+
+switch:
+  - platform: gpio
+    name: "Pump_6"
+    id: "idpump_6"
+    pin: 25
+    restore_mode: ALWAYS_OFF
+    
+time:
+  - platform: sntp
+    id: sntp_time_08
+    on_time:
+      # Every 1 minute
+      - seconds: 0
+        minutes: /1
+        then:
+          - if:
+              condition:
+                lambda: "return id(is_burping_08) == false;"
+              then:
+                - if:
+                    condition:
+                      switch.is_off: idpower_08
+                    then:
+                      - if:
+                          condition:
+                            lambda: 'return id(idhumidity_07).state > 65.0;'
+                          then:
+                            - switch.turn_on: idpower_08
+                    else:
+                      - if:
+                          condition:
+                            lambda: 'return id(idhumidity_07).state <= 65.0;'
+                          then:
+                            - switch.turn_off: idpower_08
+                          
+      # Every Sunday at midnight
+      - cron: '0 0 * * 7 *'
+        then:
+          - if:
+              condition:
+                lambda: 'return id(idhumidity_07).state > 62.0;'
+              then:
+                - lambda: "id(is_burping_08) = true;"
+                - switch.turn_on: idpower_08
+                - delay: 3 min
+                - switch.turn_off: idpower_08
+                - lambda: "id(is_burping_08) = false;"
+              else:
+                - if:
+                    condition:
+                      lambda: 'return id(idhumidity_07).state > 58.0;'
+                    then:
+                      - lambda: "id(is_burping_08) = true;"
+                      - switch.turn_on: idpower_08
+                      - delay: 1 min
+                      - switch.turn_off: idpower_08
+                      - lambda: "id(is_burping_08) = false;"
