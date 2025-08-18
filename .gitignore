@@ -1,0 +1,19 @@
+# Secrets
+secrets.yaml
+secrets.yml
+secrets/
+flows_cred.json
+
+# ESPHome build artifacts
+build/
+.esphome/
+.pioenvs/
+.piolibdeps/
+*.bin
+
+# Editor/OS
+.DS_Store
+.vscode/
+.idea/
+*.code-workspace
+
