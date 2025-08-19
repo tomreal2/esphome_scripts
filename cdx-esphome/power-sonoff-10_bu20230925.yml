@@ -1,0 +1,83 @@
+substitutions:
+  sonoff_num: "10"
+  
+esphome:
+  name: "power-sonoff-${sonoff_num}"
+  platform: ESP8266
+  board: esp01_1m
+  
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "Ii3s3bGDO2ZvQHfA4/RWmp23xCCSjbfL+Oe2JQJ6erQ="
+
+ota:
+  password: "2c052915cae288c19d794d4061073b76"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Power-Sonoff-10 Fallback Hotspot"
+    password: "785M9KMMYDtI"
+
+captive_portal:
+
+uart:
+  rx_pin: RX
+  baud_rate: 4800
+
+#binary_sensor:
+#  - platform: gpio
+#    pin:
+#      number: GPIO0
+#      mode: INPUT_PULLUP
+#      inverted: True
+#    name: "Button Sonoff ${sonoff_num}"
+#    on_press:
+#      - switch.toggle: relay
+#  - platform: status
+#    name: "Status Sonoff ${sonoff_num}"
+
+sensor:
+#  - platform: wifi_signal
+#    name: "Sonoff S31 WiFi Signal"
+#    update_interval: 60s
+  - platform: cse7766
+    update_interval: 30s
+    energy:
+      name: "Energy Sonoff ${sonoff_num}"
+      accuracy_decimals: 1
+    current:
+      name: "Current Sonoff ${sonoff_num}"
+      accuracy_decimals: 1
+    voltage:
+      name: "Voltage Sonoff ${sonoff_num}"
+      accuracy_decimals: 1
+    power:
+      name: "Power Sonoff ${sonoff_num}"
+      accuracy_decimals: 1
+      id: my_power
+  - platform: total_daily_energy
+    name: "Daily Energy Sonoff ${sonoff_num}"
+    accuracy_decimals: 1
+    power_id: my_power
+
+switch:
+  - platform: gpio
+    name: "Switch Sonoff ${sonoff_num}"
+    pin: GPIO12
+    id: relay
+    restore_mode: RESTORE_DEFAULT_ON
+
+time:
+  - platform: sntp
+    id: my_time
+
+status_led:
+  pin: GPIO13

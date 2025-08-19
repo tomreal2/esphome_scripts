@@ -1,0 +1,314 @@
+esphome:
+  name: mobile_09
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: set_humidifier
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 09 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+
+switch:
+  - platform: gpio
+    name: "Power_09"
+    id: "idpower_09"
+    pin: 23 #pin15 - top right
+    restore_mode: ALWAYS_OFF
+
+    
+i2c:
+  - id: i2c_sensor
+    sda: 16 #pin6 on right #outer wire
+    scl: 4  #pin5 on right
+    scan: True
+  - id: i2c_display
+    sda: 22 #pin14  -2nd from top on right
+    scl: 1  #pin13  -3rd from top on right
+    scan: True
+
+globals:
+  - id: "hour_on_09"
+    initial_value: "10"  # 0-24
+    type: int
+    restore_value: yes
+  - id: "hour_off_09"
+    initial_value: "22" # 22  # 0-24
+    type: int
+    restore_value: yes
+  - id: "max_temperature_09"
+    initial_value: "79.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature_09"
+    initial_value: "63.0"
+    type: float
+    restore_value: no
+    
+sensor:
+  - platform: adc
+    pin: 32 # 32-39 (6 max)
+    name: "Moisture_09_01"
+    id: "moisture09_01"
+    update_interval: 55s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    filters:
+       - lambda: |-
+           if (x >= 3.05) {
+             return 0;
+           } else if (x <= 1.40) {
+             return 100;
+           } else {
+             return (3.05-x) / (3.05-1.40) * 100.0;
+           }
+  - platform: adc
+    pin: 35 # 32-39 (6 max)
+    name: "Moisture_09_02"
+    id: "moisture09_02"
+    update_interval: 56s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    filters:
+       - lambda: |-
+           if (x >= 3.05) {
+             return 0;
+           } else if (x <= 1.40) {
+             return 100;
+           } else {
+             return (3.05-x) / (3.05-1.40) * 100.0;
+           }
+  - platform: adc
+    pin: 34 # 32-39 (6 max)
+    name: "Moisture_09_03"
+    id: "moisture09_03"
+    update_interval: 57s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    filters:
+       - lambda: |-
+           if (x >= 3.05) {
+             return 0;
+           } else if (x <= 1.40) {
+             return 100;
+           } else {
+             return (3.05-x) / (3.05-1.40) * 100.0;
+           }
+  - platform: adc
+    pin: 39 # 32-39 (6 max)
+    name: "Moisture_09_04"
+    id: "moisture09_04"
+    update_interval: 58s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    filters:
+       - lambda: |-
+           if (x >= 3.05) {
+             return 0;
+           } else if (x <= 1.40) {
+             return 100;
+           } else {
+             return (3.05-x) / (3.05-1.40) * 100.0;
+           }
+  - platform: adc
+    pin: 36 # 32-39 (6 max)
+    name: "Moisture_09_05"
+    id: "moisture09_05"
+    update_interval: 59s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    filters:
+       - lambda: |-
+           if (x >= 3.05) {
+             return 0;
+           } else if (x <= 1.40) {
+             return 100;
+           } else {
+             return (3.05-x) / (3.05-1.40) * 100.0;
+           }
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature09_1"
+      name: "Temperature09_1"
+    humidity:
+      id: "idhumidity09_1"
+      name: "Humidity09_1"
+    address: 0x44
+    update_interval: 3s
+  - platform: template
+    name: "VPD 09"
+    id: "vpd_09"
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 2
+    lambda: |-
+      float temp = id(idtemperature09_1).state;
+      float hum  = id(idhumidity09_1).state;
+      return ((6.1078*exp(17.08085*temp/(234.175+temp)))-(6.1078*exp(17.08085*temp/(234.175+temp))*(hum/100)))/10;
+    update_interval: 3s
+  - platform: template
+    name: "Avg_Moisture_09"
+    id: "idavgmoisture_09"
+    unit_of_measurement: "%"
+    update_interval: 20s
+    accuracy_decimals: 0
+    lambda: |-
+      float moisture_01 = id(moisture09_01).state;
+      float moisture_02 = id(moisture09_02).state;
+      float moisture_03 = id(moisture09_03).state;
+      float moisture_04 = id(moisture09_04).state;
+      float moisture_05 = id(moisture09_05).state;
+      
+      float add1 = (  !(moisture_01 > moisture_02 && moisture_01 > moisture_03 && moisture_01 > moisture_04 && moisture_01 > moisture_05)
+                   && !(moisture_01 < moisture_02 && moisture_01 < moisture_03 && moisture_01 < moisture_04 && moisture_01 < moisture_05)
+                   )  ? moisture_01 : 0.0;
+      
+      float add2 = (  !(moisture_02 > moisture_01 && moisture_02 > moisture_03 && moisture_02 > moisture_04 && moisture_02 > moisture_05)
+                   && !(moisture_02 < moisture_01 && moisture_02 < moisture_03 && moisture_02 < moisture_04 && moisture_02 < moisture_05)
+                   ) ? moisture_02 : 0.0;
+      
+      float add3 = (  !(moisture_03 > moisture_01 && moisture_03 > moisture_02 && moisture_03 > moisture_04 && moisture_03 > moisture_05)
+                   && !(moisture_03 < moisture_01 && moisture_03 < moisture_02 && moisture_03 < moisture_04 && moisture_03 < moisture_05)
+                   )  ? moisture_03 : 0.0;
+                
+      float add4 = (  !(moisture_04 > moisture_01 && moisture_04 > moisture_02 && moisture_04 > moisture_03 && moisture_04 > moisture_05)
+                   && !(moisture_04 < moisture_01 && moisture_04 < moisture_02 && moisture_04 < moisture_03 && moisture_04 < moisture_05)
+                   )  ? moisture_04 : 0.0;
+                
+      float add5 = (  !(moisture_05 > moisture_01 && moisture_05 > moisture_02 && moisture_05 > moisture_03 && moisture_05 > moisture_04)
+                   && !(moisture_05 < moisture_01 && moisture_05 < moisture_02 && moisture_05 < moisture_03 && moisture_05 < moisture_04)
+                   )  ? moisture_05 : 0.0;
+      
+      float total = ( (add1 > 0.0) ? 1.0 : 0.0 ) + ( (add2 > 0.0) ? 1.0 : 0.0 ) + ( (add3 > 0.0) ? 1.0 : 0.0 ) + ( (add4 > 0.0) ? 1.0 : 0.0 ) + ( (add5 > 0.0) ? 1.0 : 0.0 );
+      
+      return ((add1 + add2 + add3 + add4 + add5) / total);
+    
+font:
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font
+    size: 20
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font2
+    size: 15
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font3
+    size: 12
+
+       
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute check fan, light, work light
+      - seconds: /3 # 0
+       # minutes: /1
+        then:
+          - script.execute: set_humidifier
+          
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    i2c_id: i2c_display
+    address: 0x3C
+    lambda: |-
+      // top center.
+      it.printf(64, 0, id(roboto_regular_font), TextAlign::TOP_CENTER, "Moisture 09");
+      
+      //it.printf(0, 40, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "H2O Control");
+      
+      // Print time 
+      it.strftime(0, 40, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "%I:%M %p", id(sntp_time).now());
+      
+      // Print time 
+      // it.strftime(0, 60, id(roboto_regular_font2), TextAlign::BASELINE_LEFT, "%I:%M %p", id(sntp_time).now());
+      
+      // Print Soil Moisture
+      if (id(idavgmoisture_09).has_state()) {
+        it.printf(0, 60, id(roboto_regular_font2), TextAlign::BASELINE_LEFT , "Soil %.1f%%", id(idavgmoisture_09).state);
+      }
+      
+      // Print humidity
+      if (id(idhumidity09_1).has_state()) {
+        it.printf(127, 23, id(roboto_regular_font), TextAlign::TOP_RIGHT , "%.1f%%", id(idhumidity09_1).state);
+      }
+
+      // Print temperature
+      if (id(idtemperature09_1).has_state()) {
+        it.printf(120, 60, id(roboto_regular_font), TextAlign::BASELINE_RIGHT , "%.1f°", (id(idtemperature09_1).state * (9.0/5.0) + 32.0));
+      }
+
+
+    
+script:
+  - id: set_humidifier
+    then:
+      - if:
+          condition: # lights are scheduled to be on
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return ( (time.hour < id(hour_off_09) && time.hour >= id(hour_on_09))
+                      || (time.hour >= id(hour_on_09) && id(hour_off_09) < id(hour_on_09))
+                      || (time.hour < id(hour_off_09) && id(hour_off_09) < id(hour_on_09)) );
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    float vpd = id(vpd_09).state;
+                    float temp =    (id(idtemperature09_1).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_09);
+                    
+                    //VEG = 0.80 - 0.95
+                    //float targetVPD = 0.94; 
+                    //float targetVPDfanFight = 0.83;
+
+                    //FL  = 1.00 - 1.20        // 0.96 - 1.15
+                    float targetVPD = (1.20 - 0.03); //1.14;
+                    float targetVPDfanFight =  (1.0 + 0.03); // 1.0;
+                                       
+                    
+                    return ( (vpd > targetVPD)
+                          || (vpd > (targetVPD - targetVPDfanFight) && temp > maxtemp) );
+                then:
+                  - script.execute: turn_on_power
+                else:
+                  - script.execute: turn_off_power
+          else:
+            - script.execute: turn_off_power
+                  
+  - id: turn_on_power
+    then:
+      - if:
+          condition:
+            switch.is_off: idpower_09
+          then:
+            - switch.turn_on: idpower_09
+  - id: turn_off_power
+    then:
+      - if:
+          condition:
+            switch.is_on: idpower_09
+          then:
+            - switch.turn_off: idpower_09

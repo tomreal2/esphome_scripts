@@ -1,0 +1,129 @@
+esphome:
+  name: blue_cl
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: setlight_cl
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile cl Fallback Hotspot"
+    password: "UFbOsy9ExZYW"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+
+globals:
+  - id: "hour_on_cl"
+    initial_value: "10"  # 0-24
+    type: int
+    restore_value: yes
+  - id: "hour_off_cl"
+    initial_value: "22"   # 0-24
+    type: int
+    restore_value: yes
+
+
+  
+switch:
+  - platform: gpio
+    name: "Light_cl"
+    id: "idlight_cl"
+    pin: 2
+    inverted: True
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Fan_cl"
+    id: "idfan_cl"
+    pin: 4
+    inverted: True
+    restore_mode: ALWAYS_OFF
+
+binary_sensor:
+  - platform: template
+    name: "Light Status cl"
+    lambda: "return id(idlight_cl).state;"
+
+
+       
+sensor:
+  - platform: homeassistant
+    id: off_time_sensor_cl
+    entity_id: input_number.hour_lights_off_cl
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_off_cl) != int(x);'
+          then:
+            - globals.set:
+                id: hour_off_cl
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_cl
+    
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      - minutes: /60
+        then:
+          - script.execute: setlight_cl
+script:
+
+  - id: setlight_cl
+    then:    
+      - if:
+          condition:
+            lambda: "return !(id(hour_off_cl) == 0 && id(hour_on_cl) == 0);"
+          then:
+            # light
+            - if:
+                condition:
+                  lambda: |-
+                    auto time = id(sntp_time).now();
+                    return ( (id(hour_off_cl) == id(hour_on_cl))
+                           || (time.hour < id(hour_off_cl) && time.hour >= id(hour_on_cl))
+                           || (time.hour >= id(hour_on_cl) && id(hour_off_cl) < id(hour_on_cl))
+                           || (time.hour < id(hour_off_cl) && id(hour_off_cl) < id(hour_on_cl)) );
+                then:
+                  - logger.log:
+                      level: DEBUG
+                      format: 'Light Turning ON - Hours: %d to %d'
+                      args: ['id(hour_on_cl)', 'id(hour_off_cl)']
+                  - if:
+                      condition:
+                        - switch.is_off: idlight_cl
+                      then:
+                        - switch.turn_on: idlight_cl
+                else:
+                  - if:
+                      condition:
+                        - switch.is_on: idlight_cl
+                      then:
+                        - switch.turn_off: idlight_cl    
+  - id: onoffhourschange_cl
+    then:    
+      - if:
+          condition:
+            lambda: "return (id(hour_off_cl) == 0 && id(hour_on_cl) == 0);"
+          then:
+            - if:
+                condition:
+                  - switch.is_on: idlight_cl
+                then:
+                  - switch.turn_off: idlight_cl
+          else:
+            - script.execute: setlight_cl

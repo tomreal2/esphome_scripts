@@ -1,0 +1,545 @@
+substitutions:
+  mobile_num: "04"
+  room_type: "Dry" # Flower
+  temphum_sda: "16"
+  temphum_scl: "4"
+  clock_sda: "021"
+  clock_scl: "022"
+  display_sda: "22"
+  display_scl: "1"
+  light_pin: "18"
+  fan_pin: "19"
+  humidifier_pin: "5" # "21"
+  dehumidifier_pin: "014"
+  
+esphome:
+  name: mobile_${mobile_num}
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: turn_off_all_power
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "c9a56aaf479334bf4825ccefd694a940"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-${mobile_num} Fallback Hotspot"
+    password: "f7aojUO0aoOA"
+
+captive_portal:
+
+i2c:
+  - id: i2c_temphum
+    scl: ${temphum_scl} #33
+    sda: ${temphum_sda} #32
+    scan: True
+ # - id: i2c_clock
+ #   scl: ${clock_scl} #22 #13
+ #   sda: ${clock_sda} #21 #12
+ #   scan: True
+  - id: i2c_display
+    scl: ${display_scl} #22 #13
+    sda: ${display_sda} #21 #12
+    scan: True
+    
+time:
+#  - platform: ds1307
+#    id: ds1307_time
+#    i2c_id: i2c_clock
+#    address: 0x50 #0x68
+#    on_time_sync:
+#      then:
+#        - logger.log:
+#            level: DEBUG
+#            format: 'on_time_sync event - ds1307'
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute check fan, light, work light
+      - seconds: /3 # 0
+        #minutes: /1
+        then:
+          - delay: 1s
+          - script.execute: setfandryroom_${mobile_num}
+          - script.execute: sethumidifierdryroom_${mobile_num}
+          
+          #- script.execute: setfan_${mobile_num}
+          #- script.execute: setlight_${mobile_num}
+          #- script.execute: set_humidifier
+          #- script.execute: set_dehumidifier
+#  - platform: homeassistant
+#    on_time_sync:
+#      then:
+#        - logger.log:
+#            level: DEBUG
+#            format: 'set RTC hardware time from the network'
+#        # set RTC hardware time from the network
+#        - ds1307.write_time:
+#            id: ds1307_time
+   
+   
+font:
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font
+    size: 19
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font2
+    size: 15
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font3
+    size: 12
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font4
+    size: 13
+    
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    #i2c_id: bus_display
+    i2c_id: i2c_display
+    #reset_pin: D0
+    address: 0x3C
+    lambda: |-
+      // top center
+      it.printf(64, 0, id(roboto_regular_font4), TextAlign::TOP_CENTER, "${room_type} Rm ${mobile_num}");
+ 
+      
+      // describe what this device is doing
+      if (id(idhumidifier_${mobile_num}).state) {
+        it.printf(0, 37, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Humfr Is On");
+      } else {
+        it.printf(0, 37, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Humfr Is Off");
+      }
+      if (id(idfan_${mobile_num}).state) {
+        it.printf(0, 49, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Fan Is On");
+      } else {
+        it.printf(0, 49, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Fan Is Off");
+      }
+      
+      // Print time 
+      it.strftime(0, 63, id(roboto_regular_font2), TextAlign::BASELINE_LEFT, "%I:%M %p", id(sntp_time).now());
+
+      // Print humidity
+      if (id(idhumidity_${mobile_num}).has_state()) {
+        it.printf(127, 26, id(roboto_regular_font), TextAlign::TOP_RIGHT , "%.1f%%", id(idhumidity_${mobile_num}).state);
+      }
+
+      // Print temperature
+      if (id(idtemperature_${mobile_num}).has_state()) {
+        it.printf(120, 63, id(roboto_regular_font), TextAlign::BASELINE_RIGHT , "%.1f°", (id(idtemperature_${mobile_num}).state * (9.0/5.0) + 32.0));
+      }
+   
+binary_sensor:
+  - platform: template
+    name: "Is Day Cycle"
+    id: "isdaycycle"
+    lambda: |-
+      auto time = id(sntp_time).now();
+      return ( (id(hour_off_${mobile_num}) == id(hour_on_${mobile_num}) && !(id(hour_off_${mobile_num}) == 0 && id(hour_on_${mobile_num}) == 0))
+              || ( !(id(hour_off_${mobile_num}) == 0 && id(hour_on_${mobile_num}) == 0)
+               && ( (time.hour < id(hour_off_${mobile_num}) && time.hour >= id(hour_on_${mobile_num}))
+                || (time.hour >= id(hour_on_${mobile_num}) && id(hour_off_${mobile_num}) < id(hour_on_${mobile_num}))
+                || (time.hour < id(hour_off_${mobile_num}) && id(hour_off_${mobile_num}) < id(hour_on_${mobile_num})) ) ) 
+             );
+                   
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_temphum
+    temperature:
+      id: "idtemperature_${mobile_num}"
+      name: "Temperature_${mobile_num}"
+    humidity:
+      id: "idhumidity_${mobile_num}"
+      name: "Humidity_${mobile_num}"
+    #address: 0x44
+    update_interval: 5s
+  - platform: template
+    name: "VPD ${mobile_num}"
+    id: "vpd_${mobile_num}"
+    lambda: |-
+      float temp = id(idtemperature_${mobile_num}).state;
+      float hum  = id(idhumidity_${mobile_num}).state;
+      return ((6.1078*exp(17.08085*temp/(234.175+temp)))-(6.1078*exp(17.08085*temp/(234.175+temp))*(hum/100)))/10;
+    update_interval: 5s
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 2
+  - platform: homeassistant
+    id: on_time_sensor_${mobile_num}
+    entity_id: input_number.hour_lights_on_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_on_${mobile_num}) != int(x);'
+          then:
+            - logger.log:
+                level: DEBUG
+                format: 'Light ON time changed from %d to %d'
+                args: ['id(hour_on_${mobile_num})', 'int(x)']
+            - globals.set:
+                id: hour_on_${mobile_num}
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_${mobile_num}
+  - platform: homeassistant
+    id: off_time_sensor_${mobile_num}
+    entity_id: input_number.hour_lights_off_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_off_${mobile_num}) != int(x);'
+          then:
+            - globals.set:
+                id: hour_off_${mobile_num}
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_${mobile_num}
+  - platform: homeassistant
+    id: max_vpd_sensor_${mobile_num}
+    entity_id: input_number.max_vpd_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(max_vpd_${mobile_num}) != float(x);'
+          then:
+            - globals.set:
+                id: max_vpd_${mobile_num}
+                value: !lambda 'return float(x);'
+            #- logger.log:
+            #    level: DEBUG
+            #    format: 'New Max VPD: %.1f'
+            #    args: ['id(max_vpd_${mobile_num})']
+  - platform: homeassistant
+    id: min_vpd_sensor_${mobile_num}
+    entity_id: input_number.min_vpd_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(min_vpd_${mobile_num}) != float(x);'
+          then:
+            - globals.set:
+                id: min_vpd_${mobile_num}
+                value: !lambda 'return float(x);'
+            #- logger.log:
+            #    level: DEBUG
+            #    format: 'New Min VPD: %.1f'
+            #    args: ['id(min_vpd_${mobile_num})']
+            
+    
+switch:
+  - platform: gpio
+    name: "Dehumidifier_${mobile_num}" #"power01_${mobile_num}" 
+    id: "iddehumidifier_${mobile_num}" #"idpower01_${mobile_num}" 
+    pin: ${dehumidifier_pin}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Light_${mobile_num}" #"power02_${mobile_num}" 
+    id: "idlight_${mobile_num}" #"idpower02_${mobile_num}" 
+    pin: ${light_pin}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Fan_${mobile_num}" #"power03_${mobile_num}" 
+    id: "idfan_${mobile_num}" #"idpower03_${mobile_num}" 
+    pin: ${fan_pin}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Humidifier_${mobile_num}" #"power04_${mobile_num}" 
+    id: "idhumidifier_${mobile_num}" #"idpower04_${mobile_num}" 
+    pin: ${humidifier_pin}
+    restore_mode: ALWAYS_OFF
+    
+globals:
+  - id: "hour_on_${mobile_num}"
+    initial_value: "11"  # 0-24
+    type: int
+    restore_value: yes
+  - id: "hour_off_${mobile_num}"
+    initial_value: "${mobile_num}"   # 0-24
+    type: int
+    restore_value: yes
+  - id: "max_temperature_${mobile_num}"
+    initial_value: "79.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature_${mobile_num}"
+    initial_value: "65.0"
+    type: float
+    restore_value: no    
+  - id: "min_vpd_${mobile_num}"
+    initial_value: "1.0"
+    type: float
+    restore_value: no
+  - id: "max_vpd_${mobile_num}"
+    initial_value: "1.5"
+    type: float
+    restore_value: no
+    ### DRY ROOM GLOBALS BELOW ###
+  - id: "max_temperature_dryroom_${mobile_num}"
+    initial_value: "75.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature_dryroom_${mobile_num}"
+    initial_value: "63.0"
+    type: float
+    restore_value: no
+  - id: "max_humidity_dryroom_${mobile_num}"
+    initial_value: "64.0" #64.0 #"62.0" # "58.0"
+    type: float
+    restore_value: no
+  - id: "min_humidity_dryroom_${mobile_num}"
+    initial_value: "61.0" #61.0 #"57.0" # "54.0"
+    type: float
+    restore_value: no
+
+script:
+  - id: turn_off_all_power
+    then:
+      - if:
+          condition:
+            switch.is_on: idlight_${mobile_num}
+          then:
+            - switch.turn_off: idlight_${mobile_num}
+      - if:
+          condition:
+            switch.is_on: idfan_${mobile_num}
+          then:
+            - switch.turn_off: idfan_${mobile_num}
+      - if:
+          condition:
+            switch.is_on: idhumidifier_${mobile_num}
+          then:
+            - switch.turn_off: idhumidifier_${mobile_num}
+      - if:
+          condition:
+            switch.is_on: iddehumidifier_${mobile_num}
+          then:
+            - switch.turn_off: iddehumidifier_${mobile_num}
+  - id: setfan_${mobile_num}
+    then:    
+      - if:
+          condition:
+            lambda: "return !(id(hour_off_${mobile_num}) == 0 && id(hour_on_${mobile_num}) == 0);"
+          then:
+            # fan
+            - if:
+                condition:
+                  lambda: |-
+                    //FAN
+                    float temp =    (id(idtemperature_${mobile_num}).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_${mobile_num});
+                    float mintemp = id(min_temperature_${mobile_num});
+                    float min_vpd = id(min_vpd_${mobile_num});
+                    float vpd = id(vpd_${mobile_num}).state;
+                    
+                    float targetVPD = min_vpd; // + 0.02;
+                    
+                    return ( (temp > maxtemp)
+                          || (temp > mintemp && vpd < targetVPD) );
+
+                then:
+                  - if:
+                      condition:
+                        switch.is_off: idfan_${mobile_num}
+                      then:
+                        - switch.turn_on: idfan_${mobile_num}
+                else:
+                  - if:
+                      condition:
+                        switch.is_on: idfan_${mobile_num}
+                      then:
+                        - switch.turn_off: idfan_${mobile_num}
+  - id: setlight_${mobile_num}
+    then:    
+      - if:
+          condition:
+            lambda: "return id(isdaycycle).state;"
+          then:
+            - if:
+                condition:
+                  switch.is_off: idlight_${mobile_num}
+                then:
+                  - switch.turn_on: idlight_${mobile_num}
+          else:
+            - if:
+                condition:
+                  switch.is_on: idlight_${mobile_num}
+                then:
+                  - switch.turn_off: idlight_${mobile_num}    
+  - id: onoffhourschange_${mobile_num}
+    then:    
+      - if:
+          condition:
+            lambda: "return (id(hour_off_${mobile_num}) == 0 && id(hour_on_${mobile_num}) == 0);"
+          then:
+            - if:
+                condition:
+                  switch.is_on: idlight_${mobile_num}
+                then:
+                  - switch.turn_off: idlight_${mobile_num}
+            - if:
+                condition:
+                  switch.is_on: idfan_${mobile_num}
+                then:
+                  - switch.turn_off: idfan_${mobile_num}
+          else:
+            - script.execute: setfan_${mobile_num}
+            - script.execute: setlight_${mobile_num}
+            - script.execute: turn_off_humidifier
+  - id: set_humidifier
+    then:
+      - if:
+          condition: # lights are scheduled to be on
+            lambda: "return id(isdaycycle).state;"
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    //HUMIDIFIER
+                    float vpd = id(vpd_${mobile_num}).state;
+                    float temp =    (id(idtemperature_${mobile_num}).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_${mobile_num});
+                    float min_vpd = id(min_vpd_${mobile_num});
+                    float max_vpd = id(max_vpd_${mobile_num});
+                    
+                    //VEG = 0.80 - 0.95
+                    //float targetVPD = 0.94; 
+                    //float targetVPDfanFight = 0.83;
+
+                    //FL  = 1.00 - 1.20        // 0.96 - 1.15
+                    //float targetVPD = (1.20 - 0.03); //1.14;
+                    //float targetVPDfanFight =  (1.0 + 0.03); // 1.0;
+                    
+                    //MID FL  = 1.00 - 1.50        // 0.96 - 1.15
+                    //float targetVPD = (1.50 - 0.03); //1.14;
+                    //float targetVPDfanFight =  (1.0 + 0.03); // 1.0;     
+                    
+                    float targetVPD = max_vpd; //(max_vpd - 0.03);         
+                    float targetVPDfanFight =  (max_vpd - 0.04);
+                    
+                    return ( (vpd > targetVPD)
+                          || (vpd > targetVPDfanFight && temp > maxtemp) );
+                then:
+                  - script.execute: turn_on_humidifier
+                else:
+                  - script.execute: turn_off_humidifier
+          else:
+            - script.execute: turn_off_humidifier
+  - id: turn_on_humidifier
+    then:
+      - if:
+          condition:
+            switch.is_off: idhumidifier_${mobile_num}
+          then:
+            - switch.turn_on: idhumidifier_${mobile_num}
+  - id: turn_off_humidifier
+    then:
+      - if:
+          condition:
+            switch.is_on: idhumidifier_${mobile_num}
+          then:
+            - switch.turn_off: idhumidifier_${mobile_num}
+  - id: set_dehumidifier
+    then:
+      - if:
+          condition:
+            lambda: "return ( !id(isdaycycle).state && !(id(hour_off_${mobile_num}) == 0 && id(hour_on_${mobile_num}) == 0) );"
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    //DEHUMIDIFIER
+                    float temp =    (id(idtemperature_${mobile_num}).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_${mobile_num});
+                    float vpd = id(vpd_${mobile_num}).state;
+                    float min_vpd = id(min_vpd_${mobile_num});
+                    
+                    //VEG = 0.80 - 1.0
+                    //float targetVPD = (0.80 + 0.02); //VEG fan
+              
+                    //FL  = 1.0 - 1.2
+                    //float targetVPD = (1.0 + 0.02); //FL fan
+              
+                    //MID FL  = 1.0 - 1.5
+                    //float targetVPD = (1.0 + 0.02); //FL fan
+              
+                    //LATE FL  = 1.2 - 1.6
+                    //float targetVPD = (1.2 + 0.02); //LATE FL fan
+                    
+                    float targetVPD = (min_vpd + 0.02); //FL fan
+              
+                    return ( (temp < (maxtemp - 4)) && vpd < targetVPD );
+                then:
+                  - script.execute: turn_on_dehumidifier_power
+                else:
+                  - script.execute: turn_off_dehumidifier_power
+          else:
+            - script.execute: turn_off_dehumidifier_power
+  - id: turn_on_dehumidifier_power
+    then:
+      - if:
+          condition:
+            switch.is_off: iddehumidifier_${mobile_num}
+          then:
+            - switch.turn_on: iddehumidifier_${mobile_num}
+  - id: turn_off_dehumidifier_power
+    then:
+      - if:
+          condition:
+            switch.is_on: iddehumidifier_${mobile_num}
+          then:
+            - switch.turn_off: iddehumidifier_${mobile_num}
+  - id: setfandryroom_${mobile_num}
+    then:    
+      - if:
+          condition:
+            lambda: |-
+              float temp =    (id(idtemperature_${mobile_num}).state * 1.8) + 32;
+              float hum =     id(idhumidity_${mobile_num}).state;
+              float maxtemp = id(max_temperature_dryroom_${mobile_num});
+              float mintemp = id(min_temperature_dryroom_${mobile_num});
+              float maxhum =  id(max_humidity_dryroom_${mobile_num});
+              float minhum =  id(min_humidity_dryroom_${mobile_num});
+              return ( (hum > maxhum)
+                    || (temp > maxtemp && hum > minhum) );
+          then:
+            - if:
+                condition:
+                  - switch.is_off: idfan_${mobile_num}
+                then:
+                  - switch.turn_on: idfan_${mobile_num}
+          else:
+            - if:
+                condition:
+                  - switch.is_on: idfan_${mobile_num}
+                then:
+                  - switch.turn_off: idfan_${mobile_num}
+  - id: sethumidifierdryroom_${mobile_num}
+    then:    
+      - if:
+          condition:
+            lambda: |-
+              float temp =    (id(idtemperature_${mobile_num}).state * 1.8) + 32;
+              float hum =     id(idhumidity_${mobile_num}).state;
+              float maxtemp = id(max_temperature_dryroom_${mobile_num});
+              float mintemp = id(min_temperature_dryroom_${mobile_num});
+              float maxhum =  id(max_humidity_dryroom_${mobile_num});
+              float minhum =  id(min_humidity_dryroom_${mobile_num});
+              return ( hum < minhum );
+          then:
+            - script.execute: turn_on_humidifier
+          else:
+            - script.execute: turn_off_humidifier

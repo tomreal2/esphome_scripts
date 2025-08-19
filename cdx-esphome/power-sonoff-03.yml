@@ -1,0 +1,86 @@
+substitutions:
+  sonoff_num: "03"
+  
+esphome:
+  name: "power-sonoff-${sonoff_num}"
+  platform: ESP8266
+  board: esp01_1m
+
+
+# Enable logging
+logger:
+  baud_rate: 0
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "c6646c837428043d41dde1b825099638"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Power-Sonos-01 Fallback Hotspot"
+    password: "XeyrhbnhsZdW"
+
+captive_portal:
+
+uart:
+  rx_pin: RX
+  baud_rate: 4800
+
+switch:
+  - platform: gpio
+    name: "Switch Sonoff ${sonoff_num}"
+    pin: GPIO12
+    id: relay
+    restore_mode: ALWAYS_OFF
+
+time:
+  - platform: sntp
+    id: my_time
+    on_time_sync:
+      then:
+        - logger.log: "Synchronized system clock"
+    on_time:
+      # Every 1 minute check internal fan
+      - seconds: 0
+        minutes: /1
+        then:
+          - script.execute: setpower
+          
+status_led:
+  pin: GPIO13
+  
+script:
+  - id: setpower
+    then:    
+      - if:
+          condition:
+            lambda: |-
+              auto time = id(my_time).now();
+              //0-2, 19-21, 39-41 //3min on then 18min off
+              return ( time.minute <= 2 || (time.minute >= 19 && time.minute <=21) || (time.minute >= 39 && time.minute <=41) );
+          then:
+            #- logger.log:
+            #    level: DEBUG
+            #    format: 'TURN ON - Cur Min: %i'
+            #    args: ['id(my_time).now().minute']
+            - if:
+                condition:
+                  - switch.is_off: relay
+                then:
+                  - switch.turn_on: relay
+          else:
+            #- logger.log:
+            #    level: DEBUG
+            #    format: 'TURN OFF - Cur Min: %i'
+            #    args: ['id(my_time).now().minute']
+            - if:
+                condition:
+                  - switch.is_on: relay
+                then:
+                  - switch.turn_off: relay

@@ -1,0 +1,258 @@
+esphome:
+  name: mobile_05
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 05 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+
+switch:
+  - platform: gpio
+    name: "Power_05"
+    id: "idpower_05"
+    pin: 23 #pin15 - top right
+    restore_mode: ALWAYS_OFF
+    
+i2c:
+  - id: i2c_sensor
+    sda: 16 #pin6 on right #outer wire
+    scl: 4  #pin5 on right
+    scan: True
+  - id: i2c_display
+    sda: 22 #pin14  -2nd from top on right
+    scl: 1  #pin13  -3rd from top on right
+    scan: True
+
+
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature05_1"
+      name: "Temperature05_1"
+    humidity:
+      id: "idhumidity05_1"
+      name: "Humidity05_1"
+    address: 0x44
+    update_interval: 15s
+  - platform: template
+    name: "Burp_Offset_05"
+    id: "idburpoffset_05"
+    lambda: "return id(burp_offset);"
+    update_interval: 10s
+    accuracy_decimals: 0
+
+font:
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font
+    size: 20
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font2
+    size: 15
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font3
+    size: 12
+
+       
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time: 
+      - seconds: 0
+        minutes: /1
+        then: # Every 1 minute
+          - script.execute: periodic_burp_05
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    i2c_id: i2c_display
+    address: 0x3C
+    lambda: |-
+      // top center.
+      it.printf(64, 0, id(roboto_regular_font), TextAlign::TOP_CENTER, "Mobile 05");
+      
+      it.printf(0, 40, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Smarter Burp");
+      
+      // Print time 
+      it.strftime(0, 60, id(roboto_regular_font2), TextAlign::BASELINE_LEFT, "%I:%M %p", id(sntp_time).now());
+
+      // Print humidity
+      if (id(idhumidity05_1).has_state()) {
+        it.printf(127, 23, id(roboto_regular_font), TextAlign::TOP_RIGHT , "%.1f%%", id(idhumidity05_1).state);
+      }
+
+      // Print temperature
+      if (id(idtemperature05_1).has_state()) {
+        it.printf(120, 60, id(roboto_regular_font), TextAlign::BASELINE_RIGHT , "%.1f°", (id(idtemperature05_1).state * (9.0/5.0) + 32.0));
+      }
+
+globals:
+  - id: "is_burping"
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: "burp_offset"
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: "humidity_before_last_burp"
+    type: float
+    restore_value: no
+    initial_value: "0.0"
+    
+script:
+  - id: periodic_burp_05
+    then:
+      - if:
+          condition:
+            lambda: 'return id(idhumidity05_1).state > 65.0;' #Burp above 65
+          then:
+            - script.execute: burp_05
+          else:
+            - if:
+                condition: #3x Day 64.0 and above
+                  lambda: |-
+                    auto time = id(sntp_time).now();
+                    return id(idhumidity05_1).state >= 64.0
+                      && time.second == 0
+                      && time.minute == 0
+                      && ( time.hour == 0
+                        || time.hour == 8
+                        || time.hour == 16 );
+                then:
+                  - script.execute: burp_05
+                else:
+                  - if:
+                      condition: #1x Day above 63.0 
+                        lambda: |-
+                          auto time = id(sntp_time).now();
+                          return id(idhumidity05_1).state >= 63.0
+                            && time.second == 0
+                            && time.minute == 0
+                            &&   time.hour == 0;
+                      then:
+                        - script.execute: burp_05
+                      else:
+                        - if:
+                            condition: #1x Week above 62.0
+                              lambda: |-
+                                auto time = id(sntp_time).now();
+                                return id(idhumidity05_1).state >= 62.0
+                                  && time.second == 0
+                                  && time.minute == 0
+                                  &&   time.hour == 0
+                                  && time.day_of_week == 1;
+                            then:
+                              - script.execute: burp_05
+                            else:
+                              - if:
+                                  condition: #1x Month 61.0 and above
+                                    lambda: |-
+                                      auto time = id(sntp_time).now();
+                                      return id(idhumidity05_1).state >= 61.0
+                                        && time.second == 0
+                                        && time.minute == 0
+                                        &&   time.hour == 0
+                                        && time.day_of_month == 1;
+                                  then:
+                                    - script.execute: burp_05
+  - id: adjust_offset
+    then:
+      - lambda: |-
+                float diff = id(humidity_before_last_burp) - id(idhumidity05_1).state;
+                int offset = id(burp_offset);
+                
+                if ( id(idhumidity05_1).state > 65.0 ) {
+                  offset = 2;
+                } else if ( diff < 0.2 ) {
+                  offset = offset + 2; 
+                } else if ( diff < 0.5 ) {
+                  offset = offset + 1; 
+                } else if ( diff > 1.5 ) {
+                  offset = offset - 2; 
+                } else if ( diff > 1.0 ) {
+                  offset = offset - 1; 
+                }
+                
+                offset = (offset >  2) ?  2 : offset;
+                offset = (offset < -2) ? -2 : offset;
+                id(burp_offset) = offset;
+  - id: burp_05
+    then:
+      - if:
+          condition:
+            lambda: 'return id(idhumidity05_1).state > 60.0 && id(burp_offset) == 0;'
+          then:
+            - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity05_1).state;"
+            - switch.turn_on: idpower_05
+            - delay: 15 sec
+            - switch.turn_off: idpower_05
+            - lambda: "id(is_burping) = false;"
+            - delay: 41 sec
+            - script.execute: adjust_offset
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(idhumidity05_1).state > 60.0 && id(burp_offset) == 1;'
+                then:
+                  - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity05_1).state;"
+                  - switch.turn_on: idpower_05
+                  - delay: 20 sec
+                  - switch.turn_off: idpower_05
+                  - lambda: "id(is_burping) = false;"
+                  - delay: 36 sec
+                  - script.execute: adjust_offset
+                else:  
+                  - if:
+                      condition:
+                        lambda: 'return id(idhumidity05_1).state > 60.0 && id(burp_offset) == 2;'
+                      then:
+                        - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity05_1).state;"
+                        - switch.turn_on: idpower_05
+                        - delay: 40 sec
+                        - switch.turn_off: idpower_05
+                        - lambda: "id(is_burping) = false;"
+                        - delay: 16 sec
+                        - script.execute: adjust_offset
+                      else:
+                        - if:
+                            condition:
+                              lambda: 'return id(idhumidity05_1).state > 60.0 && id(burp_offset) == -1;'
+                            then:
+                              - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity05_1).state;"
+                              - switch.turn_on: idpower_05
+                              - delay: 10 sec
+                              - switch.turn_off: idpower_05
+                              - lambda: "id(is_burping) = false;"
+                              - delay: 46 sec
+                              - script.execute: adjust_offset
+                            else:
+                              - if:
+                                  condition:
+                                    lambda: 'return id(idhumidity05_1).state > 60.0 && id(burp_offset) == -2;'
+                                  then:
+                                    - lambda: "id(is_burping) = true; id(humidity_before_last_burp) = id(idhumidity05_1).state;"
+                                    - switch.turn_on: idpower_05
+                                    - delay: 2 sec
+                                    - switch.turn_off: idpower_05
+                                    - lambda: "id(is_burping) = false;"
+                                    - delay: 54 sec
+                                    - script.execute: adjust_offset

@@ -1,0 +1,151 @@
+esphome:
+  name: mobile_02
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: setfan_02
+    - script.execute: sethumidifier_02
+      
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 02 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+globals:
+  - id: "mobile_name_02"
+    restore_value: no
+    type: char[10]
+    initial_value: "{'M','o','b','i','l','e',' ','0','2','\0'}"  #CHANGE THIS & REPLACE _02
+  - id: "max_temperature_02"
+    initial_value: "75.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature_02"
+    initial_value: "63.0"
+    type: float
+    restore_value: no
+  - id: "max_humidity_02"
+    initial_value: "62.0"
+    type: float
+    restore_value: no
+  - id: "min_humidity_02"
+    initial_value: "57.0"
+    type: float
+    restore_value: no
+    
+  
+switch:
+  - platform: gpio
+    name: "Humidifier_02"
+    id: "idhumidifier_02"
+    pin: 18 #wk light
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Fan_02"
+    id: "idfan_02"
+    pin: 19 #light
+    restore_mode: ALWAYS_OFF
+
+binary_sensor:
+  - platform: template
+    name: "Humidifier Status 02"
+    lambda: "return id(idhumidifier_02).state;"
+  - platform: template
+    name: "Fan Status 02"
+    lambda: "return id(idfan_02).state;"
+ 
+i2c:
+  - id: i2c_sensor
+    sda: 21 #pin6 on right #outer wire
+    scl: 22  #pin5 on right
+    scan: True
+       
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature_02"
+      name: "Temperature02"
+    humidity:
+      id: "idhumidity_02"
+      name: "Humidity02"
+      accuracy_decimals: 1
+    update_interval: 30s
+
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute check fan, light, work light
+      - seconds: 0
+        minutes: /1
+        then:
+          - script.execute: sethumidifier_02
+          - script.execute: setfan_02
+
+script:
+  - id: setfan_02
+    then:    
+      - if:
+          condition:
+            lambda: |-
+              float temp =    (id(idtemperature_02).state * 1.8) + 32;
+              float hum =     id(idhumidity_02).state;
+              float maxtemp = id(max_temperature_02);
+              float mintemp = id(min_temperature_02);
+              float maxhum =  id(max_humidity_02);
+              float minhum =  id(min_humidity_02);
+              return ( (hum > maxhum)
+                    || (temp > maxtemp && hum > minhum) );
+          then:
+            - if:
+                condition:
+                  switch.is_off: idfan_02
+                then:
+                  - switch.turn_on: idfan_02
+          else:
+            - if:
+                condition:
+                  switch.is_on: idfan_02
+                then:
+                  - switch.turn_off: idfan_02
+  - id: sethumidifier_02
+    then:    
+      - if:
+          condition:
+            lambda: |-
+              float temp =    (id(idtemperature_02).state * 1.8) + 32;
+              float hum =     id(idhumidity_02).state;
+              float maxtemp = id(max_temperature_02);
+              float mintemp = id(min_temperature_02);
+              float maxhum =  id(max_humidity_02);
+              float minhum =  id(min_humidity_02);
+              return ( hum < minhum );
+          then:
+            - if:
+                condition:
+                  switch.is_off: idhumidifier_02
+                then:
+                  - switch.turn_on: idhumidifier_02
+          else:
+            - if:
+                condition:
+                  switch.is_on: idhumidifier_02
+                then:
+                  - switch.turn_off: idhumidifier_02

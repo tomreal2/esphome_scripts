@@ -1,0 +1,108 @@
+esphome:
+  name: mobile-18
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    then:
+        #  set current system time from the RTC hardware
+      - ds1307.read_time:
+          id: ds1307_time
+      - wait_until:
+          api.connected:
+      - logger.log:
+          level: DEBUG
+          format: 'on_boot - api.connected'
+#    then:
+#      #  set current system time from the RTC hardware
+#      ds1307.read_time:
+#        id: ds1307_time
+
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "e3704b6264924bdeeacf8070e5e9128a"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-18 Fallback Hotspot"
+    password: "WtQ0rT5jUcHm"
+
+captive_portal:
+
+
+i2c:
+  - id: i2c_clock
+    sda: 21
+    scl: 22 
+    scan: True
+    
+time:
+  - platform: ds1307
+    id: ds1307_time
+    i2c_id: i2c_clock
+    address: 0x50 #0x68
+    on_time_sync:
+      then:
+        logger.log:
+          level: DEBUG
+          format: 'on_time_sync event - ds1307'
+  - platform: sntp
+    id: sntp_time
+    on_time_sync:
+      then:
+        logger.log:
+          level: DEBUG
+          format: 'on_time_sync event - sntp_time'
+  - platform: homeassistant
+    on_time_sync:
+      then:
+        - logger.log:
+            level: DEBUG
+            format: 'set RTC hardware time from the network'
+        # set RTC hardware time from the network
+        - ds1307.write_time:
+            id: ds1307_time
+          
+          
+          
+          
+#time:
+#  - platform: ds1307
+#    id: ds1307_time
+#    i2c_id: i2c_clock
+#    address: 0x50 #0x68
+#  - platform: homeassistant
+#    # instead try to synchronize via network repeatedly ...
+#    on_time_sync:
+#      then:
+#        # set RTC hardware time from the network
+#        ds1307.write_time:
+#          id: ds1307_time
+    
+#sensor:
+#  - platform: scd30
+#    i2c_id: i2c_sensor
+#    co2:
+#      name: "CO2_18"
+#      id: "idco2_18"
+#      accuracy_decimals: 1
+#    temperature:
+#      name: "co2Temperature_18"
+#      id: "idtemperature_18"
+#      accuracy_decimals: 2
+#    humidity:
+#      name: "co2Humidity_18"
+#      id: "idhumidity_18"
+#      accuracy_decimals: 1
+#    address: 0x61
+#    update_interval: 6s
+#    automatic_self_calibration: false

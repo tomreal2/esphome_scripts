@@ -1,0 +1,287 @@
+esphome:
+  name: mobile_11
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: setfan_11
+    - script.execute: setlight_11
+    - script.execute: turn_off_humidifier
+    
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 11 Fallback Hotspot"
+    password: "PP3o7Z1smMti"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+globals:
+  - id: "mobile_name_11"
+    restore_value: no
+    type: char[10]
+    initial_value: "{'M','o','b','i','l','e',' ','1','1','\0'}"  #CHANGE THIS & REPLACE _11
+  - id: "hour_on_11"
+    initial_value: "10"  # 0-24
+    type: int
+    restore_value: yes
+  - id: "hour_off_11"
+    initial_value: "22"   # 0-24
+    type: int
+    restore_value: yes
+  - id: "max_temperature_11"
+    initial_value: "79.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature_11"
+    initial_value: "63.0"
+    type: float
+    restore_value: no
+  - id: "target_humidity_11"
+    initial_value: "0.0" #"58.0"
+    type: float
+    restore_value: no
+    
+i2c:
+  - id: i2c_sensor
+    sda: 21 #pin6 on right #outer wire
+    scl: 22  #pin5 on right
+    scan: True
+     
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature_11"
+      name: "Temperature11"
+    humidity:
+      id: "idhumidity_11"
+      name: "Humidity11"
+      accuracy_decimals: 1
+    address: 0x44
+    update_interval: 3s
+  - platform: template
+    name: "Target Humidity 11"
+    id: "targethumidity_11"
+    lambda: "return id(target_humidity_11);"
+    update_interval: 3s
+  - platform: template
+    name: "VPD 11"
+    id: "vpd_11"
+    lambda: |-
+      float temp = id(idtemperature_11).state;
+      float hum  = id(idhumidity_11).state;
+      return ((6.1078*exp(17.08085*temp/(234.175+temp)))-(6.1078*exp(17.08085*temp/(234.175+temp))*(hum/100)))/10;
+    update_interval: 3s
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 2
+  - platform: homeassistant
+    id: on_time_sensor_11
+    entity_id: input_number.hour_lights_on_cab
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_on_11) != int(x);'
+          then:
+            - logger.log:
+                level: DEBUG
+                format: 'Light ON time changed from %d to %d'
+                args: ['id(hour_on_11)', 'int(x)']
+            - globals.set:
+                id: hour_on_11
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_11
+  - platform: homeassistant
+    id: off_time_sensor_11
+    entity_id: input_number.hour_lights_off_cab
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_off_11) != int(x);'
+          then:
+            - globals.set:
+                id: hour_off_11
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_11
+
+            
+    
+switch:
+  - platform: gpio
+    name: "Light_11"
+    id: "idlight_11"
+    pin:
+      number: 17
+      inverted: yes
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Fan_11"
+    id: "idfan_11"
+    pin:
+      number: 16
+      inverted: yes
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Humidifier_11"
+    id: "idhumidifier_11"
+    pin: 23 #pin15 - top right
+    restore_mode: ALWAYS_OFF
+    
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute check fan, light, work light
+      - seconds: /3 # /5 # /15 #30 # /30 # 0
+        #minutes: /1
+        then:
+          - script.execute: setlight_11
+          - script.execute: setfan_11
+          - script.execute: set_humidifier
+              
+script:
+  - id: setfan_11
+    then:    
+      - if:
+          condition:
+            lambda: "return !(id(hour_off_11) == 0 && id(hour_on_11) == 0);"
+          then:
+            # fan
+            - if:
+                condition:
+                  lambda: |-
+                    float temp =    (id(idtemperature_11).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_11);
+                    float mintemp = id(min_temperature_11);
+                    
+                    //FL  = 0.96 - 1.15
+                    //float targetVPD = (0.96 + 0.02); //FL fan
+                    
+                    //VEG = 0.80 - 0.95
+                    float targetVPD = (0.80 + 0.02); //VEG fan
+                    
+                    float vpd = id(vpd_11).state;
+                    
+                    //return (vpd < targetVPD);
+                    
+                    return ( (temp > maxtemp)
+                          || (temp > mintemp && vpd < targetVPD) );
+                then:
+                  - if:
+                      condition:
+                        switch.is_off: idfan_11
+                      then:
+                        - switch.turn_on: idfan_11
+                else:
+                  - if:
+                      condition:
+                        switch.is_on: idfan_11
+                      then:
+                        - switch.turn_off: idfan_11
+  - id: setlight_11
+    then:    
+      - if:
+          condition:
+            lambda: "return !(id(hour_off_11) == 0 && id(hour_on_11) == 0);"
+          then:    
+            # light
+            - if:
+                condition:
+                  lambda: |-
+                    auto time = id(sntp_time).now();
+                    return id(hour_on_11) == id(hour_off_11) ||
+                      ( (time.hour < id(hour_off_11) && time.hour >= id(hour_on_11))
+                        || (time.hour >= id(hour_on_11) && id(hour_off_11) < id(hour_on_11))
+                        || (time.hour < id(hour_off_11) && id(hour_off_11) < id(hour_on_11)) );
+                then:
+                  - if:
+                      condition:
+                        switch.is_off: idlight_11
+                      then:
+                        - switch.turn_on: idlight_11
+                else:
+                  - if:
+                      condition:
+                        switch.is_on: idlight_11
+                      then:
+                        - switch.turn_off: idlight_11
+  - id: onoffhourschange_11
+    then:    
+      - if:
+          condition:
+            lambda: "return (id(hour_off_11) == 0 && id(hour_on_11) == 0);"
+          then:
+            - if:
+                condition:
+                  switch.is_on: idhumidifier_11
+                then:
+                  - switch.turn_off: idhumidifier_11
+            - if:
+                condition:
+                  switch.is_on: idlight_11
+                then:
+                  - switch.turn_off: idlight_11
+            - if:
+                condition:
+                  switch.is_on: idfan_11
+                then:
+                  - switch.turn_off: idfan_11
+          else:
+            - script.execute: setfan_11
+            - script.execute: setlight_11
+  - id: set_humidifier
+    then:
+      - if:
+          condition: # lights are scheduled to be on
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return ( !(id(hour_off_11) == 0 && id(hour_on_11) == 0)
+                       && ( (time.hour < id(hour_off_11) && time.hour >= id(hour_on_11))
+                        || (time.hour >= id(hour_on_11) && id(hour_off_11) < id(hour_on_11))
+                        || (time.hour < id(hour_off_11) && id(hour_off_11) < id(hour_on_11)) ) );
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    //FL  = 0.96 - 1.15
+                    //float targetVPD = (1.15 - 0.02); //FL humidifier
+                    
+                    //VEG = 0.80 - 0.95
+                    float targetVPD = (0.95 - 0.02); //VEG humidifier
+                    
+                    float vpd = id(vpd_11).state;
+                    return (vpd > targetVPD);
+                then:
+                  - script.execute: turn_on_humidifier
+                else:
+                  - script.execute: turn_off_humidifier
+          else:
+            - script.execute: turn_off_humidifier
+  - id: turn_on_humidifier
+    then:
+      - if:
+          condition:
+            switch.is_off: idhumidifier_11
+          then:
+            - switch.turn_on: idhumidifier_11
+  - id: turn_off_humidifier
+    then:
+      - if:
+          condition:
+            switch.is_on: idhumidifier_11
+          then:
+            - switch.turn_off: idhumidifier_11

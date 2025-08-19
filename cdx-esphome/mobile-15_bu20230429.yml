@@ -1,0 +1,50 @@
+substitutions:
+  mobilenum: "15"
+  sensor_sda: "21"
+  sensor_scl: "22"
+  
+esphome:
+  name: mobile-${mobilenum}
+  platform: ESP32
+  board: nodemcu-32s
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "33bb68a50589c9edfabce537f854851f"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-${mobilenum} Fallback Hotspot"
+    password: "ASD54MWBKJb4"
+
+captive_portal:
+
+
+i2c:
+  - id: i2c_sensor_${mobilenum}
+    sda: ${sensor_sda}
+    scl: ${sensor_scl}
+    #scan: True
+    
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor_${mobilenum}
+    temperature:
+      id: "idtemperature_${mobilenum}"
+      name: "Temperature${mobilenum}"
+    humidity:
+      id: "idhumidity_${mobilenum}"
+      name: "Humidity${mobilenum}"
+      accuracy_decimals: 1
+    update_interval: 3s
+    
+    

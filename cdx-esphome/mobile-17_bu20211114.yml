@@ -1,0 +1,128 @@
+esphome:
+  name: mobile-17
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: turn_off_all_power
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "c31059ba2f9a5008fbd36f3a022a58af"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-17 Fallback Hotspot"
+    password: "kmeF8idOaOST"
+
+captive_portal:
+
+i2c:
+  - id: i2c_sensor
+    scl: 22 # 13 #green 22  #pin5 on right
+    sda: 21 # 14 #blue 21 #pin6 on right #outer wire
+    scan: True
+    
+sensor:
+  - platform: bme280 #bme280 bmp280
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature_17"
+      name: "Temperature_17"
+      oversampling: 16x
+    humidity:
+      id: "idhumidity_17"
+      name: "Humidity_17"
+      accuracy_decimals: 1
+    pressure:
+      name: "Pressure_17"
+    address: 0x76 #0x77
+    update_interval: 5s
+    
+switch:
+  - platform: gpio
+    name: "power01_17"
+    id: "idpower01_17"
+    pin: 
+      number: 32 
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "power02_17"
+    id: "idpower02_17"
+    pin: 
+      number:  33 
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "power03_17"
+    id: "idpower03_17"
+    pin: 
+      number:  25
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "power04_17"
+    id: "idpower04_17"
+    pin: 
+      number:  26
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "idpower05_17"
+    id: "idpower05_17"
+    pin: 
+      number:  27
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "idpower06_17"
+    id: "idpower06_17"
+    pin: 
+      number:  12
+      inverted: true
+    restore_mode: ALWAYS_OFF
+    
+script:
+  - id: turn_off_all_power
+    then:
+      - if:
+          condition:
+            switch.is_on: idpower01_17
+          then:
+            - switch.turn_off: idpower01_17
+      - if:
+          condition:
+            switch.is_on: idpower02_17
+          then:
+            - switch.turn_off: idpower02_17
+      - if:
+          condition:
+            switch.is_on: idpower03_17
+          then:
+            - switch.turn_off: idpower03_17
+      - if:
+          condition:
+            switch.is_on: idpower04_17
+          then:
+            - switch.turn_off: idpower04_17
+      - if:
+          condition:
+            switch.is_on: idpower05_17
+          then:
+            - switch.turn_off: idpower05_17
+      - if:
+          condition:
+            switch.is_on: idpower06_17
+          then:
+            - switch.turn_off: idpower06_17

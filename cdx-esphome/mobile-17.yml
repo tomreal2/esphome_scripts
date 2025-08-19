@@ -1,0 +1,444 @@
+esphome:
+  name: mobile-17
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: turn_off_all_power
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "c31059ba2f9a5008fbd36f3a022a58af"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-17 Fallback Hotspot"
+    password: "kmeF8idOaOST"
+
+captive_portal:
+
+i2c:
+  - id: i2c_sensor
+    scl: 22 # 13 #green 22  #pin5 on right
+    sda: 21 # 14 #blue 21 #pin6 on right #outer wire
+    scan: True
+    
+binary_sensor:
+  - platform: template
+    name: "Is Day Cycle"
+    id: "isdaycycle"
+    lambda: |-
+      auto time = id(sntp_time).now();
+      return ( (id(hour_off_17) == id(hour_on_17) && !(id(hour_off_17) == 0 && id(hour_on_17) == 0))
+              || ( !(id(hour_off_17) == 0 && id(hour_on_17) == 0)
+               && ( (time.hour < id(hour_off_17) && time.hour >= id(hour_on_17))
+                || (time.hour >= id(hour_on_17) && id(hour_off_17) < id(hour_on_17))
+                || (time.hour < id(hour_off_17) && id(hour_off_17) < id(hour_on_17)) ) ) 
+             );
+
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature_17"
+      name: "Temperature_17"
+    humidity:
+      id: "idhumidity_17"
+      name: "Humidity_17"
+    address: 0x44
+    update_interval: 5s
+  - platform: template
+    name: "VPD 17"
+    id: "vpd_17"
+    lambda: |-
+      float temp = id(idtemperature_17).state;
+      float hum  = id(idhumidity_17).state;
+      return ((6.1078*exp(17.08085*temp/(234.175+temp)))-(6.1078*exp(17.08085*temp/(234.175+temp))*(hum/100)))/10;
+    update_interval: 5s
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 2
+  - platform: homeassistant
+    id: on_time_sensor_17
+    entity_id: input_number.hour_lights_on_17
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_on_17) != int(x);'
+          then:
+            - logger.log:
+                level: DEBUG
+                format: 'Light ON time changed from %d to %d'
+                args: ['id(hour_on_17)', 'int(x)']
+            - globals.set:
+                id: hour_on_17
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_17
+  - platform: homeassistant
+    id: off_time_sensor_17
+    entity_id: input_number.hour_lights_off_17
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_off_17) != int(x);'
+          then:
+            - globals.set:
+                id: hour_off_17
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_17
+  - platform: homeassistant
+    id: max_vpd_sensor_17
+    entity_id: input_number.max_vpd_17
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(max_vpd_17) != float(x);'
+          then:
+            - globals.set:
+                id: max_vpd_17
+                value: !lambda 'return float(x);'
+            #- logger.log:
+            #    level: DEBUG
+            #    format: 'New Max VPD: %.1f'
+            #    args: ['id(max_vpd_17)']
+  - platform: homeassistant
+    id: min_vpd_sensor_17
+    entity_id: input_number.min_vpd_17
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(min_vpd_17) != float(x);'
+          then:
+            - globals.set:
+                id: min_vpd_17
+                value: !lambda 'return float(x);'
+            #- logger.log:
+            #    level: DEBUG
+            #    format: 'New Min VPD: %.1f'
+            #    args: ['id(min_vpd_17)']
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute check fan, light, work light
+      - seconds: /5 # 0
+        #minutes: /1
+        then:
+          - delay: 1s
+          - script.execute: setfan_17
+          - script.execute: setlight_17
+          - script.execute: set_humidifier
+          - script.execute: set_dehumidifier
+#sensor:
+#  - platform: bme280 #bme280 bmp280
+#    i2c_id: i2c_sensor
+#    temperature:
+#      id: "idtemperature_17"
+#      name: "Temperature_17"
+#      oversampling: 16x
+#    humidity:
+#      id: "idhumidity_17"
+#     name: "Humidity_17"
+#      accuracy_decimals: 1
+#    pressure:
+#      name: "Pressure_17"
+#    address: 0x76 #0x76 #0x77
+#    update_interval: 5s
+    
+globals:
+  - id: "mobile_name_17"
+    restore_value: no
+    type: char[10]
+    initial_value: "{'M','o','b','i','l','e',' ','0','4','\0'}"  #CHANGE THIS & REPLACE _17
+  - id: "hour_on_17"
+    initial_value: "11"  # 0-24
+    type: int
+    restore_value: yes
+  - id: "hour_off_17"
+    initial_value: "22"   # 0-24
+    type: int
+    restore_value: yes
+  - id: "max_temperature_17"
+    initial_value: "79.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature_17"
+    initial_value: "65.0"
+    type: float
+    restore_value: no    
+  - id: "min_vpd_17"
+    initial_value: "1.0"
+    type: float
+    restore_value: no
+  - id: "max_vpd_17"
+    initial_value: "1.5"
+    type: float
+    restore_value: no
+    
+
+switch:
+  - platform: gpio
+    name: "Light_17" #"power01_17"
+    id: "idlight_17" #"idlight_17"
+    pin: 
+      number: 32 
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    #name: "Fan_17" # "power02_17"
+    #id: "idfan_17" # "idpower02_17"
+    name: "power02_17"
+    id: "idpower02_17"
+    pin: 
+      number:  33 
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Humidifier_17" #"power03_17"
+    id: "idhumidifier_17" #"idpower03_17"
+    pin: 
+      number:  25
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Dehumidifier_17" # "power04_17"
+    id: "iddehumidifier_17" #"idpower04_17"
+    pin: 
+      number:  26
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Fan_17" #"power05_17"
+    id: "idfan_17" #"idpower05_17"
+    pin: 
+      number:  27
+      inverted: true
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "power06_17"
+    id: "idpower06_17"
+    pin: 
+      number:  14 # 12
+      inverted: true
+    restore_mode: ALWAYS_OFF
+    
+script:
+  - id: turn_off_all_power
+    then:
+      - if:
+          condition:
+            switch.is_on: idlight_17
+          then:
+            - switch.turn_off: idlight_17
+      - if:
+          condition:
+            switch.is_on: idfan_17
+          then:
+            - switch.turn_off: idfan_17
+      - if:
+          condition:
+            switch.is_on: idhumidifier_17
+          then:
+            - switch.turn_off: idhumidifier_17
+      - if:
+          condition:
+            switch.is_on: iddehumidifier_17
+          then:
+            - switch.turn_off: iddehumidifier_17
+      - if:
+          condition:
+            switch.is_on: idpower02_17
+          then:
+            - switch.turn_off: idpower02_17
+      - if:
+          condition:
+            switch.is_on: idpower06_17
+          then:
+            - switch.turn_off: idpower06_17
+  - id: setfan_17
+    then:    
+      - if:
+          condition:
+            lambda: "return !(id(hour_off_17) == 0 && id(hour_on_17) == 0);"
+          then:
+            # fan
+            - if:
+                condition:
+                  lambda: |-
+                    //FAN
+                    float temp =    (id(idtemperature_17).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_17);
+                    float mintemp = id(min_temperature_17);
+                    float min_vpd = id(min_vpd_17);
+                    float vpd = id(vpd_17).state;
+                    
+                    float targetVPD = min_vpd; // + 0.02;
+                    
+                    return ( (temp > maxtemp)
+                          || (temp > mintemp && vpd < targetVPD) );
+
+                then:
+                  - if:
+                      condition:
+                        switch.is_off: idfan_17
+                      then:
+                        - switch.turn_on: idfan_17
+                else:
+                  - if:
+                      condition:
+                        switch.is_on: idfan_17
+                      then:
+                        - switch.turn_off: idfan_17
+  - id: setlight_17
+    then:    
+      - if:
+          condition:
+            lambda: "return id(isdaycycle).state;"
+          then:
+            - if:
+                condition:
+                  switch.is_off: idlight_17
+                then:
+                  - switch.turn_on: idlight_17
+          else:
+            - if:
+                condition:
+                  switch.is_on: idlight_17
+                then:
+                  - switch.turn_off: idlight_17    
+  - id: onoffhourschange_17
+    then:    
+      - if:
+          condition:
+            lambda: "return (id(hour_off_17) == 0 && id(hour_on_17) == 0);"
+          then:
+            - if:
+                condition:
+                  switch.is_on: idlight_17
+                then:
+                  - switch.turn_off: idlight_17
+            - if:
+                condition:
+                  switch.is_on: idfan_17
+                then:
+                  - switch.turn_off: idfan_17
+          else:
+            - script.execute: setfan_17
+            - script.execute: setlight_17
+            - script.execute: turn_off_humidifier
+  - id: set_humidifier
+    then:
+      - if:
+          condition: # lights are scheduled to be on
+            lambda: "return id(isdaycycle).state;"
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    //HUMIDIFIER
+                    float vpd = id(vpd_17).state;
+                    float temp =    (id(idtemperature_17).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_17);
+                    float min_vpd = id(min_vpd_17);
+                    float max_vpd = id(max_vpd_17);
+                    
+                    //VEG = 0.80 - 0.95
+                    //float targetVPD = 0.94; 
+                    //float targetVPDfanFight = 0.83;
+
+                    //FL  = 1.00 - 1.20        // 0.96 - 1.15
+                    //float targetVPD = (1.20 - 0.03); //1.14;
+                    //float targetVPDfanFight =  (1.0 + 0.03); // 1.0;
+                    
+                    //MID FL  = 1.00 - 1.50        // 0.96 - 1.15
+                    //float targetVPD = (1.50 - 0.03); //1.14;
+                    //float targetVPDfanFight =  (1.0 + 0.03); // 1.0;     
+                    
+                    float targetVPD = max_vpd; //(max_vpd - 0.03);         
+                    float targetVPDfanFight =  (max_vpd - 0.04);
+                    
+                    return ( (vpd > targetVPD)
+                          || (vpd > targetVPDfanFight && temp > maxtemp) );
+                then:
+                  - script.execute: turn_on_humidifier
+                else:
+                  - script.execute: turn_off_humidifier
+          else:
+            - script.execute: turn_off_humidifier
+  - id: turn_on_humidifier
+    then:
+      - if:
+          condition:
+            switch.is_off: idhumidifier_17
+          then:
+            - switch.turn_on: idhumidifier_17
+  - id: turn_off_humidifier
+    then:
+      - if:
+          condition:
+            switch.is_on: idhumidifier_17
+          then:
+            - switch.turn_off: idhumidifier_17
+  - id: set_dehumidifier
+    then:
+      - if:
+          condition:
+            lambda: "return ( !id(isdaycycle).state && !(id(hour_off_17) == 0 && id(hour_on_17) == 0) );"
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    //DEHUMIDIFIER
+                    float temp =    (id(idtemperature_17).state * 1.8) + 32;
+                    float maxtemp = id(max_temperature_17);
+                    float vpd = id(vpd_17).state;
+                    float min_vpd = id(min_vpd_17);
+                    
+                    //VEG = 0.80 - 1.0
+                    //float targetVPD = (0.80 + 0.02); //VEG fan
+              
+                    //FL  = 1.0 - 1.2
+                    //float targetVPD = (1.0 + 0.02); //FL fan
+              
+                    //MID FL  = 1.0 - 1.5
+                    //float targetVPD = (1.0 + 0.02); //FL fan
+              
+                    //LATE FL  = 1.2 - 1.6
+                    //float targetVPD = (1.2 + 0.02); //LATE FL fan
+                    
+                    float targetVPD = (min_vpd + 0.02); //FL fan
+              
+                    return ( (temp < (maxtemp - 4)) && vpd < targetVPD );
+                then:
+                  - script.execute: turn_on_dehumidifier_power
+                else:
+                  - script.execute: turn_off_dehumidifier_power
+          else:
+            - script.execute: turn_off_dehumidifier_power
+  - id: turn_on_dehumidifier_power
+    then:
+      - if:
+          condition:
+            switch.is_off: iddehumidifier_17
+          then:
+            - switch.turn_on: iddehumidifier_17
+  - id: turn_off_dehumidifier_power
+    then:
+      - if:
+          condition:
+            switch.is_on: iddehumidifier_17
+          then:
+            - switch.turn_off: iddehumidifier_17
