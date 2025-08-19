@@ -1,0 +1,160 @@
+# 7 MINUTE DELAYED POWER UP
+substitutions:
+  sonoff_num: "13"
+  hour_on: "4" #10=flower 4=veg
+  hour_off: "22"
+  
+esphome:
+  name: power-sonoff-${sonoff_num}
+  friendly_name: power-sonoff-${sonoff_num}
+
+esp8266:
+  board: esp01_1m
+  
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "ImWeZAS8gHV6ncLCkuAd1ZPrNWOxV+IVbSUVwhLGKA0="
+
+ota:
+  - platform: esphome
+    password: "84666d9d8eb76607d510d9f33ad62515"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Power-Sonoff-13 Fallback Hotspot"
+    password: "kodmq11Pta45"
+
+captive_portal:
+    
+    
+    
+# uart:
+#   rx_pin: RX
+#   baud_rate: 4800
+
+globals:
+  - id: "hour_on_${sonoff_num}"
+    initial_value: "${hour_on}"  # 0-24
+    type: int
+    restore_value: yes
+  - id: "hour_off_${sonoff_num}"
+    initial_value: "${hour_off}"   # 0-24
+    type: int
+    restore_value: yes
+
+switch:
+  - platform: gpio
+    name: "Switch Sonoff ${sonoff_num}"
+    pin: GPIO12
+    id: relay
+    restore_mode: ALWAYS_OFF
+
+binary_sensor:
+  - platform: template
+    name: "Is Day Cycle"
+    id: "isdaycycle"
+    lambda: |-
+      auto time = id(sntp_time).now();
+      return ( (id(hour_off_${sonoff_num}) == id(hour_on_${sonoff_num}) && !(id(hour_off_${sonoff_num}) == 0 && id(hour_on_${sonoff_num}) == 0))
+              || ( !(id(hour_off_${sonoff_num}) == 0 && id(hour_on_${sonoff_num}) == 0)
+               && ( (time.hour < id(hour_off_${sonoff_num}) && time.hour >= id(hour_on_${sonoff_num}))
+                || (time.hour >= id(hour_on_${sonoff_num}) && id(hour_off_${sonoff_num}) < id(hour_on_${sonoff_num}))
+                || (time.hour < id(hour_off_${sonoff_num}) && id(hour_off_${sonoff_num}) < id(hour_on_${sonoff_num})) ) ) 
+             );
+
+sensor:
+  - platform: homeassistant
+    id: on_time_sensor_s${sonoff_num}
+    entity_id: input_number.hour_lights_on_s${sonoff_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_on_${sonoff_num}) != int(x);'
+          then:
+            - logger.log:
+                level: DEBUG
+                format: 'Light ON time changed from %d to %d'
+                args: ['id(hour_on_${sonoff_num})', 'int(x)']
+            - globals.set:
+                id: hour_on_${sonoff_num}
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_${sonoff_num}
+  - platform: homeassistant
+    id: off_time_sensor_s${sonoff_num}
+    entity_id: input_number.hour_lights_off_s${sonoff_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_off_${sonoff_num}) != int(x);'
+          then:
+            - globals.set:
+                id: hour_off_${sonoff_num}
+                value: !lambda 'return int(x);'
+            - script.execute: onoffhourschange_${sonoff_num}
+            
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "EST+5EDT,M3.2.0/2,M11.1.0/2"
+    on_time_sync:
+      then:
+        - logger.log: "Synchronized system clock"
+    on_time:
+      # Every 1 minute check internal fan
+      - seconds: 0
+        minutes: /1
+        then:
+          - script.execute: setpower
+          
+status_led:
+  pin: GPIO13
+  
+script:
+  - id: setpower
+    then:    
+      - if:
+          condition:
+            lambda: "return id(isdaycycle).state;"
+          then:
+            - logger.log:
+                level: DEBUG
+                format: 'TURN ON - Cur hour: %i'
+                args: ['id(sntp_time).now().hour']
+            - if:
+                condition:
+                  - switch.is_off: relay
+                then:
+                  - switch.turn_on: relay
+          else:
+            - logger.log:
+                level: DEBUG
+                format: 'TURN OFF - Cur hour: %i'
+                args: ['id(sntp_time).now().hour']
+            - if:
+                condition:
+                  - switch.is_on: relay
+                then:
+                  - switch.turn_off: relay
+  - id: onoffhourschange_${sonoff_num}
+    then:    
+      - if:
+          condition:
+            lambda: "return (id(hour_off_${sonoff_num}) == 0 && id(hour_on_${sonoff_num}) == 0);"
+          then:
+            - if:
+                condition:
+                  switch.is_on: relay
+                then:
+                  - switch.turn_off: relay
+          else:
+            - script.execute: setpower

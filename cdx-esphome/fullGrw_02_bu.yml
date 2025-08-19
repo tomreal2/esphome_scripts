@@ -1,0 +1,318 @@
+esphome:
+  name: mobile_02
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 02 Fallback Hotspot"
+    password: "UFbOsy9ExZYW"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+
+globals:
+  - id: "mobile_name_02"
+    restore_value: no
+    type: char[10]
+    initial_value: "{'M','o','b','i','l','e',' ','0','2','\0'}"  #CHANGE THIS & REPLACE _02
+  - id: "hour_on_02"
+    initial_value: "10"  # 0-24
+    type: int
+    restore_value: yes
+  - id: "hour_off_02"
+    initial_value: "22"   # 0-24
+    type: int
+    restore_value: yes
+  - id: "max_temperature_02"
+    initial_value: "77.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature_02"
+    initial_value: "63.0"
+    type: float
+    restore_value: no
+  - id: "max_humidity_02"
+    initial_value: "55.0"
+    type: float
+    restore_value: no
+    
+  - id: "worklight_expiration_02"
+    type: int
+    restore_value: no
+    initial_value: '0'
+    
+  
+switch:
+  - platform: gpio
+    name: "Light_02"
+    id: "idlight_02"
+    pin: 19
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "WkLight_02"
+    id: "idwklight_02"
+    pin: 18
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Fan_02"
+    id: "idfan_02"
+    pin: 5
+    restore_mode: ALWAYS_OFF
+  - platform: template
+    name: "Work Light 02"
+    id: "idworklight_02"
+    optimistic: true
+    lambda: |-
+      auto time = id(sntp_time).now();
+      if ( (id(hour_off_02) == id(hour_on_02))
+        || (time.hour < id(hour_off_02) && time.hour >= id(hour_on_02))
+        || (time.hour >= id(hour_on_02) && id(hour_off_02) < id(hour_on_02))
+        || (time.hour < id(hour_off_02) && id(hour_off_02) < id(hour_on_02)) ) {
+          return {};
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - if:
+          condition: 
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return ( (id(hour_off_02) == id(hour_on_02))
+                      || (time.hour < id(hour_off_02) && time.hour >= id(hour_on_02))
+                      || (time.hour >= id(hour_on_02) && id(hour_off_02) < id(hour_on_02))
+                      || (time.hour < id(hour_off_02) && id(hour_off_02) < id(hour_on_02)) );
+          then:
+            - if:
+                condition:
+                  switch.is_on: idlight_02
+                then:
+                  - switch.turn_off: idlight_02
+            - if:
+                condition:
+                  switch.is_off: idwklight_02
+                then:
+                  - switch.turn_on: idwklight_02
+            - lambda: |-
+                auto time = id(sntp_time).now();
+                id(worklight_expiration_02) = time.timestamp + (60 * 15);
+    turn_off_action:
+      - if:
+          condition: 
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return ( (id(hour_off_02) == id(hour_on_02))
+                      || (time.hour < id(hour_off_02) && time.hour >= id(hour_on_02))
+                      || (time.hour >= id(hour_on_02) && id(hour_off_02) < id(hour_on_02))
+                      || (time.hour < id(hour_off_02) && id(hour_off_02) < id(hour_on_02)) );
+          then:
+            - if:
+                condition:
+                  switch.is_on: idwklight_02
+                then:
+                  - switch.turn_off: idwklight_02
+            - if:
+                condition:
+                  switch.is_off: idlight_02
+                then:
+                  - switch.turn_on: idlight_02
+            - lambda: "id(worklight_expiration_02) = 0;"
+
+binary_sensor:
+  - platform: template
+    name: "Light Status 02"
+    lambda: "return id(idlight_02).state;"
+  - platform: template
+    name: "Work Light Status 02"
+    lambda: "return id(idwklight_02).state;"
+  - platform: template
+    name: "Fan Status 02"
+    lambda: "return id(idfan_02).state;"
+ 
+
+i2c:
+  - id: i2c_sensor
+    sda: 21 #pin6 on right #outer wire
+    scl: 22  #pin5 on right
+    scan: True
+       
+sensor:
+  - platform: sht3xd #sht3xd #hdc1080 #htu21d
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature_02"
+      name: "Temperature02"
+    humidity:
+      id: "idhumidity_02"
+      name: "Humidity02"
+    #address: 0x44
+    update_interval: 30s
+    
+    
+  - platform: template
+    name: "Work Minutes 02"
+    id: "idworkminutes_02"
+    lambda: |-
+      auto time = id(sntp_time).now();
+      if (id(worklight_expiration_02) < time.timestamp) {
+        return 0;
+      } else {
+        float secsleft = (float)(id(worklight_expiration_02) - time.timestamp);
+        float minutesleft = (secsleft / 60.0);  //ceil
+        return minutesleft;
+      }
+    update_interval: 28s
+  - platform: homeassistant
+    id: on_time_sensor_02
+    entity_id: input_number.hour_lights_on_bt
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_on_02) != int(x);'
+          then:
+            - logger.log:
+                level: DEBUG
+                format: 'Light ON time changed from %d to %d'
+                args: ['id(hour_on_02)', 'int(x)']
+            - globals.set:
+                id: hour_on_02
+                value: !lambda 'return int(x);'
+  - platform: homeassistant
+    id: off_time_sensor_02
+    entity_id: input_number.hour_lights_off_bt
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(hour_off_02) != int(x);'
+          then:
+            # - logger.log:
+            #     level: DEBUG
+            #     format: 'Light OFF time changed from %d to %d'
+            #     args: ['id(hour_off_02)', 'int(x)']
+            - globals.set:
+                id: hour_off_02
+                value: !lambda 'return int(x);'
+                
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute check fan, light, work light
+      - seconds: 0
+        minutes: /1
+        then:
+          - script.execute: setfan_02
+          - script.execute: setlight_02
+          - script.execute: setwklight_02
+                      
+                
+              
+
+script:
+  - id: setfan_02
+    then:
+      # fan
+      - if:
+          condition:
+            lambda: |-
+              float temp =    (id(idtemperature_02).state * 1.8) + 32;
+              float hum =     id(idhumidity_02).state;
+              float maxtemp = id(max_temperature_02);
+              float mintemp = id(min_temperature_02);
+              float maxhum =  id(max_humidity_02);
+              return ( (temp > maxtemp)
+                    || (temp > mintemp && hum > maxhum) );
+          then:
+            - if:
+                condition:
+                  switch.is_off: idfan_02
+                then:
+                  - switch.turn_on: idfan_02
+          else:
+            - if:
+                condition:
+                  switch.is_on: idfan_02
+                then:
+                  - switch.turn_off: idfan_02
+  - id: setlight_02
+    then:    
+      # light
+      - if:
+          condition:
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return time.timestamp > id(worklight_expiration_02)
+                && ( (id(hour_off_02) == id(hour_on_02))
+                  || (time.hour < id(hour_off_02) && time.hour >= id(hour_on_02))
+                  || (time.hour >= id(hour_on_02) && id(hour_off_02) < id(hour_on_02))
+                  || (time.hour < id(hour_off_02) && id(hour_off_02) < id(hour_on_02)) );
+          then:
+            - if:
+                condition:
+                  switch.is_off: idlight_02
+                then:
+                  - switch.turn_on: idlight_02
+          else:
+            - if:
+                condition:
+                  switch.is_on: idlight_02
+                then:
+                  - switch.turn_off: idlight_02    
+  - id: setwklight_02
+    then:    
+      # work light
+      - if:
+          condition:
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return time.timestamp < id(worklight_expiration_02)
+                && ( (id(hour_off_02) == id(hour_on_02))
+                  || (time.hour < id(hour_off_02) && time.hour >= id(hour_on_02))
+                  || (time.hour >= id(hour_on_02) && id(hour_off_02) < id(hour_on_02))
+                  || (time.hour < id(hour_off_02) && id(hour_off_02) < id(hour_on_02)) );
+          then:
+            - if:
+                condition: #if there is exactly 1 minute to go - 1 sec warning blink
+                  lambda: |-
+                    auto time = id(sntp_time).now();
+                    return (id(worklight_expiration_02) - time.timestamp) == 60;
+                then:
+                  - switch.turn_off: idwklight_02
+                  - delay: 1s
+                  - switch.turn_on: idwklight_02
+                else:                    
+                  - if:
+                      condition:
+                        switch.is_off: idwklight_02
+                      then:
+                        - switch.turn_on: idwklight_02
+            - if:
+                condition:
+                  switch.is_off: idworklight_02
+                then:
+                  - switch.turn_on: idworklight_02
+          else:
+            - if:
+                condition:
+                  switch.is_on: idwklight_02
+                then:
+                  - switch.turn_off: idwklight_02
+            - if:
+                condition:
+                  switch.is_on: idworklight_02
+                then:
+                  - switch.turn_off: idworklight_02

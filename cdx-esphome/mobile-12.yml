@@ -1,0 +1,42 @@
+substitutions:
+  mobilenum: "12"
+  switch_pin: "23"
+  
+esphome:
+  name: mobile_${mobilenum}
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+#    - script.execute: turn_off_power
+    
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 12 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+# Example configuration entry
+dallas:
+  - pin: 23
+
+# Individual sensors
+sensor:
+  - platform: dallas
+    address: 0x1c0000031edd2a28
+    name: "EZ Clone Reservoir"
+    id: "ez_clone_reservoir"

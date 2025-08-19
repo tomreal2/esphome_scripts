@@ -1,0 +1,116 @@
+esphome:
+  name: mobile-16
+  platform: ESP32
+  board: nodemcu-32s
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "e3859fbff5056da6f4f6b485f6d4c1f1"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-16 Fallback Hotspot"
+    password: "caWOyv62Z4es"
+
+captive_portal:
+
+
+#i2c:
+#  - id: bus_a
+#    sda: 21
+#    scl: 22
+#    scan: true
+i2c:
+  - id: i2c_sensor
+    sda: 16 #pin6 on right #outer wire
+    scl: 4  #pin5 on right
+    scan: True
+  - id: i2c_display
+    sda: 22 #pin14  -2nd from top on right
+    scl: 1  #pin13  -3rd from top on right
+    scan: True
+    
+sensor:
+  - platform: scd30
+    i2c_id: i2c_sensor
+    co2:
+      name: "CO2_16"
+      id: "idco2_16"
+      accuracy_decimals: 1
+    temperature:
+      name: "co2Temperature_16"
+      id: "idtemperature_16"
+      accuracy_decimals: 2
+    humidity:
+      name: "co2Humidity_16"
+      id: "idhumidity_16"
+      accuracy_decimals: 1
+    address: 0x61
+    update_interval: 4s
+    automatic_self_calibration: false
+    #temperature_offset: 1.0
+#    automatic_self_calibration: true
+#  - platform: template
+#    name: "VPD 16"
+#    id: "vpd_16"
+#    lambda: |-
+#      float temp = id(idtemperature_16).state;
+#      float hum  = id(idhumidity_16).state;
+#      return ((6.1078*exp(17.08085*temp/(234.175+temp)))-(6.1078*exp(17.08085*temp/(234.175+temp))*(hum/100)))/10;
+#    update_interval: 5s
+#    unit_of_measurement: "kPa"
+#    accuracy_decimals: 2
+
+time:
+  - platform: sntp
+    id: sntp_time
+    
+font:
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font
+    size: 16
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font2
+    size: 15
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font3
+    size: 27
+        
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    i2c_id: i2c_display
+    address: 0x3C
+    lambda: |-
+      it.printf(64, -2, id(roboto_regular_font), TextAlign::TOP_CENTER , "CO2 - Mob 16");
+      
+      // Print CO2
+      if (id(idco2_16).has_state()) {
+        it.printf(64, 12, id(roboto_regular_font3), TextAlign::TOP_CENTER , "%.0f ppm", id(idco2_16).state);
+      }
+
+      //was 127  TOP_RIGHT
+      // Print time 
+      it.strftime(0, 60, id(roboto_regular_font2), TextAlign::BASELINE_LEFT, "%I:%M %p", id(sntp_time).now());
+      
+      // Print temperature
+      if (id(idtemperature_16).has_state()) {
+        float temp = (id(idtemperature_16).state * (9.0/5.0) + 32.0);
+        if (temp > 100.0) 
+        {
+          temp = 99.0;
+        } else if (temp < 0.0) {
+          temp = 0.0;
+        }
+        it.printf(124, 60, id(roboto_regular_font), TextAlign::BASELINE_RIGHT , "%.1f°", temp);
+      }
+      

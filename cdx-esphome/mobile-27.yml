@@ -1,0 +1,72 @@
+substitutions:
+  mobilenum: "27"
+  sensor_sda: "21"
+  sensor_scl: "22"
+  
+esphome:
+  name: mobile-${mobilenum}
+
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "ujQ+Qbl7bPFeZ1YGD690uovRbbUKIHYsQSOlMxFm9jM="
+
+ota:
+  password: "69a602c7220f807336b90e706b014751"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-27 Fallback Hotspot"
+    password: "bIvNKWy4lIGp"
+
+captive_portal:
+
+
+i2c:
+  - id: i2c_sensor_${mobilenum}
+    sda: ${sensor_sda}
+    scl: ${sensor_scl}
+    scan: True
+    
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor_${mobilenum}
+    temperature:
+      id: "idtemperature_${mobilenum}"
+      name: "Temperature${mobilenum}"
+    humidity:
+      id: "idhumidity_${mobilenum}"
+      name: "Humidity${mobilenum}"
+      accuracy_decimals: 1
+    update_interval: 3s
+    
+#sensor:
+#  - platform: scd30
+#    co2:
+#      name: "CO2_15"
+#      id: "idco2_15"
+#      accuracy_decimals: 1
+#    temperature:
+#      name: "co2Temp_15"
+#      id: "idtemperature_15"
+#      accuracy_decimals: 2
+#    humidity:
+#      name: "co2Hum_15"
+#      id: "idhumidity_15"
+#      accuracy_decimals: 1
+#    address: 0x61
+#    update_interval: 5s
+#    automatic_self_calibration: false
+    

@@ -1,0 +1,59 @@
+esphome:
+  name: blue_cl_floor
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Blue Floor Fallback Hotspot"
+    password: "edfmAtP9BWjb"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+sensor:
+  - platform: adc
+    pin: 34
+    name: "Moisture_CL_S"
+    update_interval: 45s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    filters:
+       - offset: -0.41
+       - lambda: |-
+           if (x >= 3.41) {
+             return 0;
+           } else if (x <= 1.54) {
+             return 100;
+           } else {
+             return (3.41-x) / (3.41-1.54) * 100.0;
+           }
+  - platform: adc
+    pin: 35
+    name: "Moisture_CL_I"
+    update_interval: 46s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    filters:
+       - offset: -0.41
+       - lambda: |-
+           if (x >= 3.41) {
+             return 0;
+           } else if (x <= 1.54) {
+             return 100;
+           } else {
+             return (3.41-x) / (3.41-1.54) * 100.0;
+           }

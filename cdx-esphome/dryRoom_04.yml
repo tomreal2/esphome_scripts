@@ -1,0 +1,211 @@
+esphome:
+  name: mobile_04
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    - wait_until:
+        api.connected:
+    - script.execute: setfan_04
+    - script.execute: sethumidifier_04
+      
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 04 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+globals:
+  - id: "mobile_name_04"
+    restore_value: no
+    type: char[10]
+    initial_value: "{'M','o','b','i','l','e',' ','0','4','\0'}"  #CHANGE THIS & REPLACE _04
+  - id: "max_temperature_04"
+    initial_value: "75.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature_04"
+    initial_value: "63.0"
+    type: float
+    restore_value: no
+  - id: "max_humidity_04"
+    initial_value: "62.0"
+    type: float
+    restore_value: no
+  - id: "min_humidity_04"
+    initial_value: "57.0"
+    type: float
+    restore_value: no
+    
+
+font:
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font
+    size: 19
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font2
+    size: 15
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font3
+    size: 12
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font4
+    size: 13
+  
+switch:
+  - platform: gpio
+    name: "Humidifier_04"
+    id: "idhumidifier_04"
+    pin: 19 # 18
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Fan_04"
+    id: "idfan_04"
+    pin: 21
+    restore_mode: ALWAYS_OFF
+
+
+binary_sensor:
+  - platform: template
+    name: "Humidifier Status 04"
+    lambda: "return id(idhumidifier_04).state;"
+  - platform: template
+    name: "Fan Status 04"
+    lambda: "return id(idfan_04).state;"
+ 
+
+i2c:
+  - id: i2c_sensor
+    sda: 16 #pin6 on right #outer wire
+    scl: 4  #pin5 on right
+    scan: True
+  - id: i2c_display
+    sda: 22 #pin14  -2nd from top on right
+    scl: 1  #pin13  -3rd from top on right
+    scan: True
+       
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    temperature:
+      id: "idtemperature_04"
+      name: "Temperature04"
+    humidity:
+      id: "idhumidity_04"
+      name: "Humidity04"
+      accuracy_decimals: 1
+    update_interval: 30s
+
+
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute check fan, light, work light
+      - seconds: /3 #0
+        #minutes: /1
+        then:
+          - script.execute: sethumidifier_04
+          - script.execute: setfan_04
+
+                     
+              
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    #i2c_id: bus_display
+    i2c_id: i2c_display
+    #reset_pin: D0
+    address: 0x3C
+    lambda: |-
+      // top center
+      it.printf(64, 0, id(roboto_regular_font4), TextAlign::TOP_CENTER, id(mobile_name_04));
+ 
+      
+      // describe what this device is doing
+      if (id(idhumidifier_04).state) {
+        it.printf(0, 37, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Humfr Is On");
+      } else {
+        it.printf(0, 37, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Humfr Is Off");
+      }
+      if (id(idfan_04).state) {
+        it.printf(0, 49, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Fan Is On");
+      } else {
+        it.printf(0, 49, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Fan Is Off");
+      }
+      
+      // Print time 
+      it.strftime(0, 63, id(roboto_regular_font2), TextAlign::BASELINE_LEFT, "%I:%M %p", id(sntp_time).now());
+
+      // Print humidity
+      if (id(idhumidity_04).has_state()) {
+        it.printf(127, 26, id(roboto_regular_font), TextAlign::TOP_RIGHT , "%.1f%%", id(idhumidity_04).state);
+      }
+
+      // Print temperature
+      if (id(idtemperature_04).has_state()) {
+        it.printf(120, 63, id(roboto_regular_font), TextAlign::BASELINE_RIGHT , "%.1f°", (id(idtemperature_04).state * (9.0/5.0) + 32.0));
+      }
+
+script:
+  - id: setfan_04
+    then:    
+      - if:
+          condition:
+            lambda: |-
+              float temp =    (id(idtemperature_04).state * 1.8) + 32;
+              float hum =     id(idhumidity_04).state;
+              float maxtemp = id(max_temperature_04);
+              float mintemp = id(min_temperature_04);
+              float maxhum =  id(max_humidity_04);
+              float minhum =  id(min_humidity_04);
+              return ( (hum > maxhum)
+                    || (temp > maxtemp && hum > minhum) );
+          then:
+            - if:
+                condition:
+                  switch.is_off: idfan_04
+                then:
+                  - switch.turn_on: idfan_04
+          else:
+            - if:
+                condition:
+                  switch.is_on: idfan_04
+                then:
+                  - switch.turn_off: idfan_04
+  - id: sethumidifier_04
+    then:    
+      - if:
+          condition:
+            lambda: |-
+              float temp =    (id(idtemperature_04).state * 1.8) + 32;
+              float hum =     id(idhumidity_04).state;
+              float maxtemp = id(max_temperature_04);
+              float mintemp = id(min_temperature_04);
+              float maxhum =  id(max_humidity_04);
+              float minhum =  id(min_humidity_04);
+              return ( hum < minhum );
+          then:
+            - if:
+                condition:
+                  switch.is_off: idhumidifier_04
+                then:
+                  - switch.turn_on: idhumidifier_04
+          else:
+            - if:
+                condition:
+                  switch.is_on: idhumidifier_04
+                then:
+                  - switch.turn_off: idhumidifier_04

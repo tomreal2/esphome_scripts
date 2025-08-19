@@ -1,0 +1,46 @@
+esphome:
+  name: mobile-15
+  platform: ESP32
+  board: nodemcu-32s
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "33bb68a50589c9edfabce537f854851f"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-15 Fallback Hotspot"
+    password: "ASD54MWBKJb4"
+
+captive_portal:
+
+
+i2c:
+  - id: bus_a
+    sda: 21
+    scl: 22
+    #sda: 13
+    #scl: 14 #12
+    scan: true
+  
+sensor:
+  - platform: ccs811
+    i2c_id: bus_a
+    eco2:
+      name: "eCO2 15"
+      id: "co2_15"
+    tvoc:
+      name: "Volatile Organic Compound 15"
+      id: "vol_org_compound_15"
+    address: 0x5A
+    baseline: 0x29B9
+    update_interval: 5s

@@ -1,0 +1,634 @@
+substitutions:
+  mobile_num: "26"
+  valve_1: "14" #"25"
+  valve_2: "27" #"26"
+  valve_3: "26" #"27"
+  valve_4: "25" #"14"
+  hum_low_water: "13"
+
+  
+esphome:
+  name: mobile-${mobile_num}
+  on_boot:
+    then:
+      - wait_until:
+          api.connected:
+      - delay: 1s
+      - script.execute: setvalve1
+      - script.execute: setvalve2
+      - script.execute: setvalve3
+      - script.execute: setvalve4
+      
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "a87bed175195b835273314620a28a992"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-26 Fallback Hotspot"
+    password: "vh3790J0tTHy"
+
+captive_portal:
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "EST+5EDT,M3.2.0/2,M11.1.0/2"
+    on_time:
+      # Every 1 minute check pump_4
+      - seconds: 0
+        minutes: /1
+        then:
+          - delay: 1s
+          - script.execute: setvalve1
+          - script.execute: setvalve2
+          - script.execute: setvalve3
+          - script.execute: setvalve4
+          
+          
+globals:
+  - id: "valves_enabled"
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: "valve1_day_interval"
+    type: int
+    restore_value: yes
+    initial_value: '1'
+  - id: "valve2_day_interval"
+    type: int
+    restore_value: yes
+    initial_value: '1'
+  - id: "valve3_day_interval"
+    type: int
+    restore_value: yes
+    initial_value: '1'
+  - id: "valve4_day_interval"
+    type: int
+    restore_value: yes
+    initial_value: '1'
+    
+  - id: "valve1_days_until_water"
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: "valve2_days_until_water"
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: "valve3_days_until_water"
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: "valve4_days_until_water"
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: "valve1_water_period_hrs"
+    type: int
+    restore_value: yes
+    initial_value: '4'
+  - id: "valve2_water_period_hrs"
+    type: int
+    restore_value: yes
+    initial_value: '4'
+  - id: "valve3_water_period_hrs"
+    type: int
+    restore_value: yes
+    initial_value: '4'
+  - id: "valve4_water_period_hrs"
+    type: int
+    restore_value: yes
+    initial_value: '4'
+  
+binary_sensor:
+  - platform: gpio
+    name: "Hum Low Water ${mobile_num}"
+    id: "idhumlowwater_${mobile_num}"
+    pin:
+      number: ${hum_low_water}
+      inverted: true
+    
+switch:
+  - platform: gpio
+    name: "Valve1_${mobile_num}"
+    id: "idvalve1_${mobile_num}" 
+    pin: ${valve_1}
+    restore_mode: ALWAYS_OFF
+    #on_turn_on:
+    #  if:
+    #    condition:
+    #      lambda: 'return id(valves_enabled) == 0;'
+    #    then:
+    #      - delay: 100ms
+    #      - switch.turn_off: idvalve1_${mobile_num}
+  - platform: gpio
+    name: "Valve2_${mobile_num}"
+    id: "idvalve2_${mobile_num}" 
+    pin: ${valve_2}
+    restore_mode: ALWAYS_OFF
+    #on_turn_on:
+    #  if:
+    #    condition:
+    #      lambda: 'return id(valves_enabled) == 0;'
+    #    then:
+    #      - delay: 100ms
+    #      - switch.turn_off: idvalve2_${mobile_num}
+  - platform: gpio
+    name: "Valve3_${mobile_num}" 
+    id: "idvalve3_${mobile_num}"
+    pin: ${valve_3}
+    restore_mode: ALWAYS_OFF
+    #on_turn_on:
+    #  if:
+    #    condition:
+    #      lambda: 'return id(valves_enabled) == 0;'
+    #    then:
+    #      - delay: 100ms
+    #      - switch.turn_off: idvalve3_${mobile_num}
+  - platform: gpio
+    name: "Valve4_${mobile_num}" 
+    id: "idvalve4_${mobile_num}"  
+    pin: ${valve_4}
+    restore_mode: ALWAYS_OFF
+    #on_turn_on:
+    #  if:
+    #    condition:
+    #      lambda: 'return id(valves_enabled) == 0;'
+    #    then:
+    #      - delay: 100ms
+    #      - switch.turn_off: idvalve4_${mobile_num}
+  - platform: template
+    name: "Valves Enabled"
+    id: "idvalveenabled"
+    optimistic: true
+    lambda: 'return id(valves_enabled) == 1;'
+    turn_on_action:
+      - lambda: "id(valves_enabled) = 1;"
+    turn_off_action:
+      - lambda: "id(valves_enabled) = 0;"
+      - script.execute: turn_off_all_valves
+      
+sensor:
+  - platform: template
+    name: "Days Until Water 1"
+    id: "iddaysuntilwater1"
+    lambda: "return id(valve1_days_until_water);"
+    accuracy_decimals: 0
+    update_interval: 60s
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 1
+  - platform: template
+    name: "Days Until Water 2"
+    id: "iddaysuntilwater2"
+    lambda: "return id(valve2_days_until_water);"
+    accuracy_decimals: 0
+    update_interval: 60s
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 1
+  - platform: template
+    name: "Days Until Water 3"
+    id: "iddaysuntilwater3"
+    lambda: "return id(valve3_days_until_water);"
+    accuracy_decimals: 0
+    update_interval: 60s
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 1
+  - platform: template
+    name: "Days Until Water 4"
+    id: "iddaysuntilwater4"
+    lambda: "return id(valve4_days_until_water);"
+    accuracy_decimals: 0
+    update_interval: 60s
+    filters:
+      - or:
+        - throttle: 5min
+        - delta: 1
+  - platform: homeassistant
+    id: valve1_day_interval_sensor_${mobile_num}
+    entity_id: input_number.valve1_day_interval_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(valve1_day_interval) != int(x);'
+          then:
+            - globals.set:
+                id: valve1_day_interval
+                value: !lambda 'return int(x);'
+            - script.execute: setvalve1
+  - platform: homeassistant
+    id: valve2_day_interval_sensor_${mobile_num}
+    entity_id: input_number.valve2_day_interval_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(valve2_day_interval) != int(x);'
+          then:
+            - globals.set:
+                id: valve2_day_interval
+                value: !lambda 'return int(x);'
+            - script.execute: setvalve2
+  - platform: homeassistant
+    id: valve3_day_interval_sensor_${mobile_num}
+    entity_id: input_number.valve3_day_interval_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(valve3_day_interval) != int(x);'
+          then:
+            - globals.set:
+                id: valve3_day_interval
+                value: !lambda 'return int(x);'
+            - script.execute: setvalve3
+  - platform: homeassistant
+    id: valve4_day_interval_sensor_${mobile_num}
+    entity_id: input_number.valve4_day_interval_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(valve4_day_interval) != int(x);'
+          then:
+            - globals.set:
+                id: valve4_day_interval
+                value: !lambda 'return int(x);'
+            - script.execute: setvalve4
+  - platform: homeassistant
+    id: valve1_water_period_hrs_sensor_${mobile_num}
+    entity_id: input_number.valve1_water_period_hrs_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(valve1_water_period_hrs) != int(x);'
+          then:
+            - globals.set:
+                id: valve1_water_period_hrs
+                value: !lambda 'return int(x);'
+  - platform: homeassistant
+    id: valve2_water_period_hrs_sensor_${mobile_num}
+    entity_id: input_number.valve2_water_period_hrs_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(valve2_water_period_hrs) != int(x);'
+          then:
+            - globals.set:
+                id: valve2_water_period_hrs
+                value: !lambda 'return int(x);'
+  - platform: homeassistant
+    id: valve3_water_period_hrs_sensor_${mobile_num}
+    entity_id: input_number.valve3_water_period_hrs_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(valve3_water_period_hrs) != int(x);'
+          then:
+            - globals.set:
+                id: valve3_water_period_hrs
+                value: !lambda 'return int(x);'
+  - platform: homeassistant
+    id: valve4_water_period_hrs_sensor_${mobile_num}
+    entity_id: input_number.valve4_water_period_hrs_${mobile_num}
+    on_value:
+      then:
+        if:
+          condition:
+            lambda: 'return id(valve4_water_period_hrs) != int(x);'
+          then:
+            - globals.set:
+                id: valve4_water_period_hrs
+                value: !lambda 'return int(x);'
+                
+script:
+  - id: setvalve1
+    then:
+      - if:
+          condition: 
+            lambda: |-
+              auto time = id(sntp_time).now();
+              float mins = (time.timestamp / 60.0);
+              
+              float dst = time.is_dst ? 0.0 : 1.0;
+              float hours = (float)((mins / 60.0) - (4.0 + dst)); //  - 4.0 or -5.0 convert UMT to EDT
+              float days = (float)floor(hours/24.0);
+              float todayinterval = (days / (float)id(valve1_day_interval));
+              if (todayinterval == (float)floor(todayinterval)) {
+                //TODAY IS THE DAY, NOW CHECK TIME
+                id(valve1_days_until_water) = 0;
+                
+                int cur_hour = time.hour;
+                int cur_min = time.minute;
+                int end_hour = 10 + id(valve1_water_period_hrs);
+                if ((cur_hour == 10 && cur_min > 29) || (cur_hour == end_hour && cur_min < 30) || (cur_hour < end_hour && cur_hour > 10)) {
+                  return true;
+                } else if ((cur_hour == 10 && cur_min < 30) || (cur_hour < 10)) {
+                  return false;
+                }
+              }
+              
+              float plus1 = ((days + 1.0) / (float)id(valve1_day_interval)); 
+              if (plus1 == (float)floor(plus1)) {
+                id(valve1_days_until_water) = 1;
+                return false;
+              }
+              
+              float plus2 = ((days + 2.0) / (float)id(valve1_day_interval));
+              if (plus2 == (float)floor(plus2)) {
+                id(valve1_days_until_water) = 2;
+                return false;
+              }
+              
+              float plus3 = ((days + 3.0) / (float)id(valve1_day_interval));
+              if (plus3 == (float)floor(plus3)) {
+                id(valve1_days_until_water) = 3;
+                return false;
+              }
+              
+              float plus4 = ((days + 4.0) / (float)id(valve1_day_interval));
+              if (plus4 == (float)floor(plus4)) {
+                id(valve1_days_until_water) = 4;
+                return false;
+              }
+              
+              id(valve1_days_until_water) = 100;
+              return false;
+          then:
+            - if:
+                condition:
+                  and:
+                    - lambda: 'return id(valves_enabled) == 1;'
+                    - lambda: 'return id(valve1_water_period_hrs) > 0;'
+                    - switch.is_off: idvalve1_${mobile_num}
+                then:
+                  - switch.turn_on: idvalve1_${mobile_num}
+          else:
+            - if:
+                condition:
+                  and:
+                    - lambda: 'return id(valves_enabled) == 1;'
+                    - switch.is_on: idvalve1_${mobile_num}
+                then:
+                  - switch.turn_off: idvalve1_${mobile_num}
+  - id: setvalve2
+    then:
+      - if:
+          condition: 
+            lambda: |-
+              auto time = id(sntp_time).now();
+              float mins = (float)(time.timestamp / 60.0);
+              
+              float dst = time.is_dst ? 0.0 : 1.0;
+              float hours = (float)((mins / 60.0) - (4.0 + dst)); //  - 4.0 or -5.0 convert UMT to EDT
+              float days = (float)floor(hours/24.0);
+              float todayinterval = (days / (float)id(valve2_day_interval));
+              if (todayinterval == (float)floor(todayinterval)) {
+                //TODAY IS THE DAY, NOW CHECK TIME
+                id(valve2_days_until_water) = 0;
+                
+                int cur_hour = time.hour;
+                int cur_min = time.minute;
+                int end_hour = 10 + id(valve2_water_period_hrs);
+                if ((cur_hour == 10 && cur_min > 29) || (cur_hour == end_hour && cur_min < 30) || (cur_hour < end_hour && cur_hour > 10)) {
+                  return true;
+                } else if ((cur_hour == 10 && cur_min < 30) || (cur_hour < 10)) {
+                  return false;
+                }
+              }
+              
+              float plus1 = ((days + 1.0) / (float)id(valve2_day_interval));
+              if (plus1 == (float)floor(plus1)) {
+                id(valve2_days_until_water) = 1;
+                return false;
+              }
+              
+              float plus2 = ((days + 2.0) / (float)id(valve2_day_interval));
+              if (plus2 == (float)floor(plus2)) {
+                id(valve2_days_until_water) = 2;
+                return false;
+              }
+              
+              float plus3 = ((days + 3.0) / (float)id(valve2_day_interval));
+              if (plus3 == (float)floor(plus3)) {
+                id(valve2_days_until_water) = 3;
+                return false;
+              }
+              
+              float plus4 = ((days + 4.0) / (float)id(valve2_day_interval));
+              if (plus4 == (float)floor(plus4)) {
+                id(valve2_days_until_water) = 4;
+                return false;
+              }
+              
+              id(valve2_days_until_water) = 100;
+              return false;
+          then:
+            - if:
+                condition:
+                  and:
+                    - lambda: 'return id(valves_enabled) == 1;'
+                    - lambda: 'return id(valve2_water_period_hrs) > 0;'
+                    - switch.is_off: idvalve2_${mobile_num}
+                then:
+                  - switch.turn_on: idvalve2_${mobile_num}
+          else:
+            - if:
+                condition:
+                  and:
+                    - lambda: 'return id(valves_enabled) == 1;'
+                    - switch.is_on: idvalve2_${mobile_num}
+                then:
+                  - switch.turn_off: idvalve2_${mobile_num}
+  - id: setvalve3
+    then:
+      - if:
+          condition: 
+            lambda: |-
+              auto time = id(sntp_time).now();
+              float mins = (float)(time.timestamp / 60.0);
+              
+              float dst = time.is_dst ? 0.0 : 1.0;
+              float hours = (float)((mins / 60.0) - (4.0 + dst)); //  - 4.0 or -5.0 convert UMT to EDT
+              float days = (float)floor(hours/24.0);
+              
+              float todayinterval = (days / (float)id(valve3_day_interval));
+              if (todayinterval == (float)floor(todayinterval)) {
+                //TODAY IS THE DAY, NOW CHECK TIME
+                id(valve3_days_until_water) = 0;
+                
+                int cur_hour = time.hour;
+                int cur_min = time.minute;
+                int end_hour = 10 + id(valve3_water_period_hrs);
+                if ((cur_hour == 10 && cur_min > 29) || (cur_hour == end_hour && cur_min < 30) || (cur_hour < end_hour && cur_hour > 10)) {
+                  return true;
+                } else if ((cur_hour == 10 && cur_min < 30) || (cur_hour < 10)) {
+                  return false;
+                } 
+              }
+              
+              float plus1 = ((days + 1.0) / (float)id(valve3_day_interval));
+              if (plus1 == (float)floor(plus1)) {
+                id(valve3_days_until_water) = 1;
+                return false;
+              }
+              
+              float plus2 = ((days + 2.0) / (float)id(valve3_day_interval));
+              if (plus2 == (float)floor(plus2)) {
+                id(valve3_days_until_water) = 2;
+                return false;
+              }
+              
+              float plus3 = ((days + 3.0) / (float)id(valve3_day_interval));
+              if (plus3 == (float)floor(plus3)) {
+                id(valve3_days_until_water) = 3;
+                return false;
+              }
+              
+              float plus4 = ((days + 4.0) / (float)id(valve3_day_interval));
+              if (plus4 == (float)floor(plus4)) {
+                id(valve3_days_until_water) = 4;
+                return false;
+              }
+              
+              id(valve3_days_until_water) = 100;
+              return false;
+          then:
+            - if:
+                condition:
+                  and:
+                    - lambda: 'return id(valves_enabled) == 1;'
+                    - lambda: 'return id(valve3_water_period_hrs) > 0;'
+                    - switch.is_off: idvalve3_${mobile_num}
+                then:
+                  - switch.turn_on: idvalve3_${mobile_num}
+          else:
+            - if:
+                condition:
+                  and:
+                    - lambda: 'return id(valves_enabled) == 1;'
+                    - switch.is_on: idvalve3_${mobile_num}
+                then:
+                  - switch.turn_off: idvalve3_${mobile_num}
+  - id: setvalve4
+    then:
+      - if:
+          condition: 
+            lambda: |-
+              auto time = id(sntp_time).now();
+              
+              float mins = (float)(time.timestamp / 60.0);
+              
+              float dst = time.is_dst ? 0.0 : 1.0;
+              float hours = (float)((mins / 60.0) - (4.0 + dst)); //  - 4.0 or -5.0 convert UMT to EDT
+              float days = (float)floor(hours/24.0);
+              
+              float todayinterval = (days / (float)id(valve4_day_interval));
+              
+              //if there are no decimals when dividing days since 1970 by 4,3,2 or 1
+              if (todayinterval == (float)floor(todayinterval)) {
+                //TODAY IS THE DAY, NOW CHECK TIME
+                id(valve4_days_until_water) = 0;
+                
+                int cur_hour = time.hour;
+                int cur_min = time.minute;
+                int end_hour = 10 + id(valve4_water_period_hrs);
+                if ((cur_hour == 10 && cur_min > 29) || (cur_hour == end_hour && cur_min < 30) || (cur_hour < end_hour && cur_hour > 10)) {
+                  return true;
+                } else if ((cur_hour == 10 && cur_min < 30) || (cur_hour < 10)) {
+                  return false;
+                } 
+              }
+              
+              float plus1 = ((days + 1.0) / (float)id(valve4_day_interval));
+              if (plus1 == (float)floor(plus1)) {
+                id(valve4_days_until_water) = 1;
+                return false;
+              }
+              
+              float plus2 = ((days + 2.0) / (float)id(valve4_day_interval));
+              if (plus2 == (float)floor(plus2)) {
+                id(valve4_days_until_water) = 2;
+                return false;
+              }
+              
+              float plus3 = ((days + 3.0) / (float)id(valve4_day_interval));
+              if (plus3 == (float)floor(plus3)) {
+                id(valve4_days_until_water) = 3;
+                return false;
+              }
+              
+              float plus4 = ((days + 4.0) / (float)id(valve4_day_interval));
+              if (plus4 == (float)floor(plus4)) {
+                id(valve4_days_until_water) = 4;
+                return false;
+              }
+              
+              id(valve4_days_until_water) = 100;
+              return false;
+          then:
+            - if:
+                condition:
+                  and:
+                    - lambda: 'return id(valves_enabled) == 1;'
+                    - lambda: 'return id(valve4_water_period_hrs) > 0;'
+                    - switch.is_off: idvalve4_${mobile_num}
+                then:
+                  - switch.turn_on: idvalve4_${mobile_num}
+          else:
+            - if:
+                condition:
+                  and:
+                    - lambda: 'return id(valves_enabled) == 1;'
+                    - switch.is_on: idvalve4_${mobile_num}
+                then:
+                  - switch.turn_off: idvalve4_${mobile_num}
+                        
+
+                 
+  - id: turn_off_all_valves
+    then:
+      - if:
+          condition:
+            switch.is_on: idvalve1_${mobile_num}
+          then:
+            - switch.turn_off: idvalve1_${mobile_num}
+      - if:
+          condition:
+            switch.is_on: idvalve2_${mobile_num}
+          then:
+            - switch.turn_off: idvalve2_${mobile_num}
+      - if:
+          condition:
+            switch.is_on: idvalve3_${mobile_num}
+          then:
+            - switch.turn_off: idvalve3_${mobile_num}
+      - if:
+          condition:
+            switch.is_on: idvalve4_${mobile_num}
+          then:
+            - switch.turn_off: idvalve4_${mobile_num}

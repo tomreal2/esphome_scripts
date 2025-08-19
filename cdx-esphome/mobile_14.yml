@@ -1,0 +1,41 @@
+esphome:
+  name: mobile-14
+  platform: ESP32
+  board: esp32dev
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "63d3ab90db6d658b8d35fab5077370c3"
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile-14 Fallback Hotspot"
+    password: "pDvkLtudRkl2"
+
+captive_portal:
+
+# Example configuration entry
+i2c:
+  sda: 21
+  scl: 22
+
+sensor:
+  - platform: ccs811
+    eco2:
+      name: "CCS811 eCO2 Value"
+      id: "co2_14"
+    tvoc:
+      name: "CCS811 Total Volatile Organic Compound"
+      id: "vol_org_compound_14"
+    address: 0x5A
+    baseline: 0xD3B9
+    update_interval: 5s

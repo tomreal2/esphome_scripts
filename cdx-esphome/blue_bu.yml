@@ -1,0 +1,430 @@
+esphome:
+  name: mobile_07
+  platform: ESP32
+  board: nodemcu-32s
+  on_boot:
+    priority: -100.0
+    then:
+      - delay: 3s
+      # fan
+      - if:
+          condition:
+            lambda: |-
+              float temp =    (id(idtemperature_08).state * 1.8) + 32;
+              float hum =     id(idhumidity_08).state;
+              float maxtemp = id(max_temperature);
+              float mintemp = id(min_temperature);
+              float maxhum =  id(max_humidity);
+              return ( (temp > maxtemp)
+                    || (temp > mintemp && hum > maxhum) );
+          then:
+            - if:
+                condition:
+                  switch.is_off: idfan_08
+                then:
+                  - switch.turn_on: idfan_08
+          else:
+            - if:
+                condition:
+                  switch.is_on: idfan_08
+                then:
+                  - switch.turn_off: idfan_08
+      # light
+      - if:
+          condition:
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return time.timestamp > id(worklight_expiration)
+                && ( (time.hour < id(hour_off) && time.hour >= id(hour_on))
+                  || (time.hour >= id(hour_on) && id(hour_off) < id(hour_on))
+                  || (time.hour < id(hour_off) && id(hour_off) < id(hour_on)) );
+          then:
+            - if:
+                condition:
+                  switch.is_off: idlight_08
+                then:
+                  - switch.turn_on: idlight_08
+          else:
+            - if:
+                condition:
+                  switch.is_on: idlight_08
+                then:
+                  - switch.turn_off: idlight_08
+      # work light
+      - if:
+          condition:
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return time.timestamp < id(worklight_expiration)
+                && ( (time.hour < id(hour_off) && time.hour >= id(hour_on))
+                  || (time.hour >= id(hour_on) && id(hour_off) < id(hour_on))
+                  || (time.hour < id(hour_off) && id(hour_off) < id(hour_on)) );
+          then:
+            - if:
+                condition: #if there is exactly 1 minute to go - 1 sec warning blink
+                  lambda: |-
+                    auto time = id(sntp_time).now();
+                    return (id(worklight_expiration) - time.timestamp) == 60;
+                then:
+                  - switch.turn_off: idwklight_08
+                  - delay: 1s
+                  - switch.turn_on: idwklight_08
+                else:                    
+                  - if:
+                      condition:
+                        switch.is_off: idwklight_08
+                      then:
+                        - switch.turn_on: idwklight_08
+            - if:
+                condition:
+                  switch.is_off: idworklight_08
+                then:
+                  - switch.turn_on: idworklight_08
+          else:
+            - if:
+                condition:
+                  switch.is_on: idwklight_08
+                then:
+                  - switch.turn_off: idwklight_08
+            - if:
+                condition:
+                  switch.is_on: idworklight_08
+                then:
+                  - switch.turn_off: idworklight_08
+      
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 07 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+globals:
+  - id: "mobile_name"
+    restore_value: no
+    type: char[10]
+    initial_value: "{'M','o','b','i','l','e',' ','0','8','\0'}"  #CHANGE THIS & REPLACE 08
+  - id: "hour_on"
+    initial_value: "16"  # 0-24
+    type: int
+    restore_value: no
+  - id: "hour_off"
+    initial_value: "4"   # 0-24
+    type: int
+    restore_value: no
+  - id: "max_temperature"
+    initial_value: "77.0"
+    type: float
+    restore_value: no
+  - id: "min_temperature"
+    initial_value: "63.0"
+    type: float
+    restore_value: no
+  - id: "max_humidity"
+    initial_value: "55.0"
+    type: float
+    restore_value: no
+    
+  - id: "worklight_expiration"
+    type: int
+    restore_value: no
+    initial_value: '0'
+    
+
+i2c:
+  sda: 1
+  scl: 2
+
+font:
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font
+    size: 19
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font2
+    size: 15
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font3
+    size: 12
+  - file: "Roboto-Regular.ttf"
+    id: roboto_regular_font4
+    size: 13
+  
+switch:
+  - platform: gpio
+    name: "Light_08"
+    id: "idlight_08"
+    pin: 16
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "WkLight_08"
+    id: "idwklight_08"
+    pin: 17
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Fan_08"
+    id: "idfan_08"
+    pin: 5
+    restore_mode: ALWAYS_OFF
+  - platform: template
+    name: "Work Light 08"
+    id: "idworklight_08"
+    optimistic: true
+    lambda: |-
+      auto time = id(sntp_time).now();
+      if ( (time.hour < id(hour_off) && time.hour >= id(hour_on))
+        || (time.hour >= id(hour_on) && id(hour_off) < id(hour_on))
+        || (time.hour < id(hour_off) && id(hour_off) < id(hour_on)) ) {
+          return {};
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - if:
+          condition: 
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return ( (time.hour < id(hour_off) && time.hour >= id(hour_on))
+                      || (time.hour >= id(hour_on) && id(hour_off) < id(hour_on))
+                      || (time.hour < id(hour_off) && id(hour_off) < id(hour_on)) );
+          then:
+            - if:
+                condition:
+                  switch.is_on: idlight_08
+                then:
+                  - switch.turn_off: idlight_08
+            - if:
+                condition:
+                  switch.is_off: idwklight_08
+                then:
+                  - switch.turn_on: idwklight_08
+            - lambda: |-
+                auto time = id(sntp_time).now();
+                id(worklight_expiration) = time.timestamp + (60 * 15);
+    turn_off_action:
+      - if:
+          condition: 
+            lambda: |-
+              auto time = id(sntp_time).now();
+              return ( (time.hour < id(hour_off) && time.hour >= id(hour_on))
+                      || (time.hour >= id(hour_on) && id(hour_off) < id(hour_on))
+                      || (time.hour < id(hour_off) && id(hour_off) < id(hour_on)) );
+          then:
+            - if:
+                condition:
+                  switch.is_on: idwklight_08
+                then:
+                  - switch.turn_off: idwklight_08
+            - if:
+                condition:
+                  switch.is_off: idlight_08
+                then:
+                  - switch.turn_on: idlight_08
+            - lambda: "id(worklight_expiration) = 0;"
+
+binary_sensor:
+  - platform: template
+    name: "Light Status 08"
+    lambda: "return id(idlight_08).state;"
+  - platform: template
+    name: "Work Light Status 08"
+    lambda: "return id(idwklight_08).state;"
+  - platform: template
+    name: "Fan Status 08"
+    lambda: "return id(idfan_08).state;"
+    
+sensor:
+  - platform: dht
+    pin: 32
+    temperature:
+      id: "idtemperature_08"
+      name: "Temperature_08"
+      unit_of_measurement: "°C"
+      #filters:
+      #  - lambda: return x * (9.0/5.0) + 32.0;
+    humidity:
+      id: "idhumidity_08"
+      name: "Humidity_08"
+    update_interval: 8s
+    model: DHT22 # AM2302 # DHT22
+    
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Every 1 minute check fan
+      - seconds: 0
+        minutes: /1
+        then:
+          - if:
+              condition:
+                lambda: |-
+                  float temp =    (id(idtemperature_08).state * 1.8) + 32;
+                  float hum =     id(idhumidity_08).state;
+                  float maxtemp = id(max_temperature);
+                  float mintemp = id(min_temperature);
+                  float maxhum =  id(max_humidity);
+                  return ( (temp > maxtemp)
+                        || (temp > mintemp && hum > maxhum) );
+              then:
+                - if:
+                    condition:
+                      switch.is_off: idfan_08
+                    then:
+                      - switch.turn_on: idfan_08
+              else:
+                - if:
+                    condition:
+                      switch.is_on: idfan_08
+                    then:
+                      - switch.turn_off: idfan_08
+      # Every 1 minute check lights
+      - seconds: 0
+        minutes: /1
+        then:
+          - if:
+              condition:
+                lambda: |-
+                  auto time = id(sntp_time).now();
+                  return time.timestamp > id(worklight_expiration)
+                    && ( (time.hour < id(hour_off) && time.hour >= id(hour_on))
+                      || (time.hour >= id(hour_on) && id(hour_off) < id(hour_on))
+                      || (time.hour < id(hour_off) && id(hour_off) < id(hour_on)) );
+              then:
+                - if:
+                    condition:
+                      switch.is_off: idlight_08
+                    then:
+                      - switch.turn_on: idlight_08
+              else:
+                - if:
+                    condition:
+                      switch.is_on: idlight_08
+                    then:
+                      - switch.turn_off: idlight_08
+      # Every 1 minute check work lights
+      - seconds: 0
+        minutes: /1
+        then:
+          - if:
+              condition:
+                lambda: |-
+                  auto time = id(sntp_time).now();
+                  return time.timestamp < id(worklight_expiration)
+                    && ( (time.hour < id(hour_off) && time.hour >= id(hour_on))
+                      || (time.hour >= id(hour_on) && id(hour_off) < id(hour_on))
+                      || (time.hour < id(hour_off) && id(hour_off) < id(hour_on)) );
+              then:
+                - if:
+                    condition: #if there is exactly 1 minute to go - 1 sec warning blink
+                      lambda: |-
+                        auto time = id(sntp_time).now();
+                        return (id(worklight_expiration) - time.timestamp) == 60;
+                    then:
+                      - switch.turn_off: idwklight_08
+                      - delay: 1s
+                      - switch.turn_on: idwklight_08
+                    else:                    
+                      - if:
+                          condition:
+                            switch.is_off: idwklight_08
+                          then:
+                            - switch.turn_on: idwklight_08
+                - if:
+                    condition:
+                      switch.is_off: idworklight_08
+                    then:
+                      - switch.turn_on: idworklight_08
+              else:
+                - if:
+                    condition:
+                      switch.is_on: idwklight_08
+                    then:
+                      - switch.turn_off: idwklight_08
+                - if:
+                    condition:
+                      switch.is_on: idworklight_08
+                    then:
+                      - switch.turn_off: idworklight_08
+                      
+                  
+
+              
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    #reset_pin: D0
+    address: 0x3C
+    lambda: |-
+      // top center
+      it.printf(64, 0, id(roboto_regular_font4), TextAlign::TOP_CENTER, id(mobile_name));
+        
+      int on_number = id(hour_on);;
+      char onchar[(((sizeof on_number) * 8) + 2)/3 + 2];
+      sprintf(onchar, "%d", on_number);
+      
+      int off_number = id(hour_off);;
+      char offchar[(((sizeof off_number) * 8) + 2)/3 + 2];
+      sprintf(offchar, "%d", off_number);
+
+      char ontime [80];
+      char *time_details = onchar; 
+      struct tm tm;
+      strptime(time_details, "%H", &tm);
+      strptime("0", "%M", &tm);
+      strptime("00", "%S", &tm);
+      strftime(ontime, 80, "%I:%M %p", &tm);
+      
+      char offtime [80];
+      char *time_details2 = offchar; 
+      struct tm tm2;
+      strptime(time_details2, "%H", &tm2);
+      strptime("0", "%M", &tm2);
+      strptime("00", "%S", &tm2);
+      strftime(offtime, 80, "%I:%M %p", &tm2);
+      
+      it.printf(64, 13, id(roboto_regular_font3), TextAlign::TOP_CENTER, "%s - %s", ontime, offtime);
+      
+      // describe what this device is doing
+      if (id(idlight_08).state) {
+        it.printf(0, 37, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Light Is On");
+      } else {
+        if (id(idwklight_08).state) {
+          auto time = id(sntp_time).now();
+          float secsleft = (float)(id(worklight_expiration) - time.timestamp);
+          float minutesleft = ceil(secsleft / 60.0);
+          it.printf(0, 37, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Work %.0fmin", minutesleft);
+        } else {
+          it.printf(0, 37, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Light Is Off");
+        }
+      }
+      if (id(idfan_08).state) {
+        it.printf(0, 49, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Fan Is On");
+      } else {
+        it.printf(0, 49, id(roboto_regular_font3), TextAlign::BASELINE_LEFT, "Fan Is Off");
+      }
+      
+      // Print time 
+      it.strftime(0, 63, id(roboto_regular_font2), TextAlign::BASELINE_LEFT, "%I:%M %p", id(sntp_time).now());
+
+      // Print humidity
+      if (id(idhumidity_08).has_state()) {
+        it.printf(127, 26, id(roboto_regular_font), TextAlign::TOP_RIGHT , "%.1f%%", id(idhumidity_08).state);
+      }
+
+      // Print temperature
+      if (id(idtemperature_08).has_state()) {
+        it.printf(120, 63, id(roboto_regular_font), TextAlign::BASELINE_RIGHT , "%.1f°", (id(idtemperature_08).state * (9.0/5.0) + 32.0));
+      }

@@ -1,0 +1,57 @@
+esphome:
+  name: mobile-21       # device name
+
+esp32:
+  board: nodemcu-32s    # ESP‑32 DevKit v1 / NodeMCU‑32S
+  framework:
+    type: arduino
+
+# ── Core components ──────────────────────────────────────────────
+logger:
+
+api:
+  encryption:
+    key: "cwCYdAK7s22pwxI85i9n2KqR6sFvZM8tMGeNcLYIw64="
+    
+ota:
+  - platform: esphome
+    password: "1073adad111556b66ab7b537d16e5459"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Fallback AP if normal Wi‑Fi fails
+  ap:
+    ssid: "Mobile-21 Fallback Hotspot"
+    password: "IhQroVv9b5Ea"
+
+captive_portal:
+
+# ── I²C bus ───────────────────────────────────────────────────────
+i2c:
+  id: i2c_sensor
+  sda: 21
+  scl: 22
+  scan: true
+
+# ── Devices ───────────────────────────────────────────────────────
+switch:
+  - platform: gpio
+    id: power_21
+    name: "Power 21"
+    pin: 4            # GPIO4
+    inverted: false
+    restore_mode: ALWAYS_OFF
+
+sensor:
+  - platform: sht3xd
+    i2c_id: i2c_sensor
+    address: 0x44
+    update_interval: 5s
+    temperature:
+      id: temperature_21
+      name: "Temperature 21"
+    humidity:
+      id: humidity_21
+      name: "Humidity 21"
