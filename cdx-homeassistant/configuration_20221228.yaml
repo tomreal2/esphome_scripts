@@ -1,0 +1,523 @@
+
+# Configure a default setup of Home Assistant (frontend, api, etc)
+default_config:
+
+# Text to speech
+tts:
+  - platform: google_translate
+
+group: !include groups.yaml
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+#zwave:
+#    usb_path: /dev/ttyACM0
+
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.30.33.0/24
+#http:
+ # use_x_forwarded_for: true
+ # trusted_proxies:
+ #   - 192.168.1.0/24
+    
+#sensor:
+#  - platform: template
+#    sensors:
+#        ml_1:
+#            friendly_name: "mL 1"
+#            unit_of_measurement: 'mL'
+#            value_template: "{{ state_attr('sensor.ml_1', 'ml') }}"
+#            #value_template: "{{ state_attr('sun.sun', 'elevation') }}"
+
+        
+input_boolean:
+    t_wk:
+        name: T work lights
+        icon: mdi:electric-switch
+    cl_wk:
+        name: CL work lights
+        icon: mdi:electric-switch
+    motor1:
+        name: Motor 1
+        icon: mdi:invert-colors
+    motor2:
+        name: Motor 2
+        icon: mdi:invert-colors
+    motor3:
+        name: Motor 3
+        icon: mdi:invert-colors
+    motor4:
+        name: Motor 4
+        icon: mdi:invert-colors
+    motor5:
+        name: Motor 5
+        icon: mdi:invert-colors
+    motor6:
+        name: Motor 6
+        icon: mdi:invert-colors
+    motor3_1:
+        name: Motor3 1
+        icon: mdi:invert-colors
+    motor3_2:
+        name: Motor3 2
+        icon: mdi:invert-colors
+    motor3_3:
+        name: Motor3 3
+        icon: mdi:invert-colors
+    silent_night:
+        name: Silent Night
+        icon: mdi:electric-switch
+
+sensor:
+  - platform: template
+    sensors:
+      vapor_deficit_t:
+        friendly_name: 'vpd t'
+        value_template: >-
+          {% set T = ((states('sensor.blue_multisensor_t_temperature_2') | float) - 32) * 5/9 %}
+          {% set RH = states('sensor.blue_multisensor_t_relative_humidity_2')|float %}
+          {% set SVP = 0.61078 * e ** (17.2694 * T / (T + 238.3)) %}
+          {% set VPD = ((100-RH) / 100) * SVP %}
+          {{-VPD | round(2) -}}
+        unit_of_measurement: 'kPa'
+        
+input_number:
+    calibrate_motor1: 
+        name: Calibrate Motor 1 
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    calibrate_motor2: 
+        name: Calibrate Motor 2
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    calibrate_motor3: 
+        name: Calibrate Motor 3
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    calibrate_motor4: 
+        name: Calibrate Motor 4
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    calibrate_motor5: 
+        name: Calibrate Motor 5
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    calibrate_motor6: 
+        name: Calibrate Motor 6
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    ml_motor1: 
+        name: mL Motor 1
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    ml_motor2: 
+        name: mL Motor 2
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    ml_motor3: 
+        name: mL Motor 3
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    ml_motor4: 
+        name: mL Motor 4
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    ml_motor5: 
+        name: mL Motor 5
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    ml_motor6: 
+        name: mL Motor 6
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    ml_motor3_1: 
+        name: mL Motor3 1
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    ml_motor3_2: 
+        name: mL Motor3 2
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    ml_motor3_3: 
+        name: mL Motor3 3
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    ml_motor3_4: 
+        name: mL Motor3 4
+        initial: 1000
+        min: 0.5
+        max: 9500
+        step: 0.5
+        mode: box
+    calibrate_motor3_1: 
+        name: Calibrate Motor3 1 
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    calibrate_motor3_2: 
+        name: Calibrate Motor3 2
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    calibrate_motor3_3: 
+        name: Calibrate Motor3 3
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    calibrate_motor3_4: 
+        name: Calibrate Motor3 4
+        initial: 1
+        min: 0
+        max: 2
+        step: 0.01
+        mode: box
+    hour_lights_on_cl:
+      name: Hour Lights On cl
+      #initial: 10
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_off_cl:
+      name: Hour Lights Off cl
+      #initial: 22
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_on_bt:
+      name: Hour Lights On bt
+      #initial: 10
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_off_bt:
+      name: Hour Lights Off bt
+      #initial: 22
+      min: 0
+      max: 23
+      mode: box
+      step: 1  
+    hour_lights_on_04:
+      name: Hour Lights On 04
+      #initial: 10
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_off_04:
+      name: Hour Lights Off 04
+      #initial: 22
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_on_cab:
+      name: Hour Lights On cab
+      #initial: 10
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_off_cab:
+      name: Hour Lights Off cab
+      #initial: 22
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_on_17:
+      name: Hour Lights On 17
+      #initial: 10
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_off_17:
+      name: Hour Lights Off 17
+      #initial: 22
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    max_vpd_17:
+      name: Max VPD 17
+      min: 0.8
+      max: 1.6
+      mode: box
+      step: 0.1
+    min_vpd_17:
+      name: Min VPD 17
+      min: 0.8
+      max: 1.6
+      mode: box
+      step: 0.1
+    hour_lights_on_29:
+      name: Hour Lights On 29
+      #initial: 10
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_off_29:
+      name: Hour Lights Off 29
+      #initial: 29
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    max_vpd_29:
+      name: Max VPD 29
+      min: 0.8
+      max: 2.0
+      mode: box
+      step: 0.1
+    min_vpd_29:
+      name: Min VPD 29
+      min: 0.8
+      max: 1.6
+      mode: box
+      step: 0.1
+    max_vpd_04:
+      name: Max VPD 04
+      min: 0.8
+      max: 2.0
+      mode: box
+      step: 0.1
+    min_vpd_04:
+      name: Min VPD 04
+      min: 0.8
+      max: 1.6
+      mode: box
+      step: 0.1
+    run_time_1_clear_23:
+      name: Run Min 23 Clear 1
+      min: 0
+      max: 60
+      mode: box
+      step: 1
+    run_time_2_clear_23:
+      name: Run Min 23 Clear 2
+      min: 0
+      max: 60
+      mode: box
+      step: 1
+    run_time_3_clear_23:
+      name: Run Min 23 Clear 3
+      min: 0
+      max: 60
+      mode: box
+      step: 1
+    run_time_1_cloudy_23:
+      name: Run Min 23 Cloudy 1
+      min: 0
+      max: 10
+      mode: box
+      step: 1
+    run_time_2_cloudy_23:
+      name: Run Min 23 Cloudy 2
+      min: 0
+      max: 10
+      mode: box
+      step: 1
+    run_time_3_cloudy_23:
+      name: Run Min 23 Cloudy 3
+      min: 0
+      max: 10
+      mode: box
+      step: 1
+    run_time_4_23:
+      name: Run Minutes 23 4
+      min: 0
+      max: 180
+      mode: box
+      step: 1
+      
+    valve1_day_interval_26:
+      name: Valve 1 Day Interv
+      min: 1
+      max: 4
+      mode: box
+      step: 1
+    valve2_day_interval_26:
+      name: Valve 2 Day Interv
+      min: 1
+      max: 4
+      mode: box
+      step: 1
+    valve3_day_interval_26:
+      name: Valve 3 Day Interv
+      min: 1
+      max: 4
+      mode: box
+      step: 1
+    valve4_day_interval_26:
+      name: Valve 4 Day Interv
+      min: 1
+      max: 4
+      mode: box
+      step: 1
+      
+    valve1_water_period_hrs_26:
+      name: Valve 1 Water Period
+      min: 0
+      max: 12
+      mode: box
+      step: 1
+    valve2_water_period_hrs_26:
+      name: Valve 2 Water Period
+      min: 0
+      max: 12
+      mode: box
+      step: 1
+    valve3_water_period_hrs_26:
+      name: Valve 3 Water Period
+      min: 0
+      max: 12
+      mode: box
+      step: 1
+    valve4_water_period_hrs_26:
+      name: Valve 4 Water Period
+      min: 0
+      max: 12
+      mode: box
+      step: 1
+    hour_lights_on_25:
+      name: Hour Lights On 25
+      #initial: 10
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    hour_lights_off_25:
+      name: Hour Lights Off 25
+      #initial: 25
+      min: 0
+      max: 23
+      mode: box
+      step: 1
+    max_vpd_25:
+      name: Max VPD 25
+      min: 0.8
+      max: 2.0
+      mode: box
+      step: 0.1
+    min_vpd_25:
+      name: Min VPD 25
+      min: 0.8
+      max: 1.6
+      mode: box
+      step: 0.1
+      
+#    hour_lights_on_t:
+#      name: Hour Lights On t
+#     initial: 10
+#      min: 0
+#      max: 23
+#      mode: box
+#      step: 1
+#    hour_lights_off_t:
+#      name: Hour Lights Off t
+#      initial: 10
+#      min: 0
+#      max: 23
+#      mode: box
+#      step: 1
+#    hours_lights_on_t:
+#      name: Num Of Hrs On t
+#      #initial: 10
+#      min: 0
+#      max: 24
+#      mode: box
+#      step: 1
+#    hours_lights_off_t:
+#      name: Num Of Hrs Off t
+#      #initial: 22
+#      min: 0
+#      max: 24
+#      mode: box
+#      step: 1 
+tuya:
+  username: tom@contractsoftware.com
+  password: Havea6and3
+  country_code: 1
+        
+#logbook:
+#  include:
+#    entities:
+#      - switch.aeon_labs_dsc11_smart_strip_switch
+#      - switch.aeon_labs_dsc11_smart_strip_switch_3
+#      - switch.aeon_labs_dsc11_smart_strip_switch_4
+
+#lovelace:
+#    mode: yaml
+
+#climate:
+#  - platform: zwave
+
+#mqtt:
+    #broker: 127.0.0.1
+    #discovery: true
+    #discovery_prefix: <your_discovery_prefix>
+    #broker: [YOUR MQTT BROKER] # Remove if you want to use builtin-in MQTT broker
+    #birth_message:
+        #topic: 'hass/status' # hass/status or homeassistant/status if z2m version >= 4.0.0
+        #payload: 'online'
+    #will_message:
+        #topic: 'hass/status' # or homeassistant/status if z2m version >= 4.0.0
+        #payload: 'offline'

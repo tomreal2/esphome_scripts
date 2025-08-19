@@ -1,0 +1,75 @@
+esphome:
+  name: mobile-13
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: "Fennario"
+  password: "likeadove"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mobile 13 Fallback Hotspot"
+    password: "uoya0sL7qBfA"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "5942b7130e3f4027c904de3208e03373"
+
+
+
+
+sensor:
+  - platform: adc
+    pin: 32 # 32-39 (6 max)
+    name: "Moisture_13_01"
+    id: "moisture13_01"
+    update_interval: 55s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    filters:
+       - lambda: |-
+           if (x >= 3.05) {
+             return 0;
+           } else if (x <= 1.40) {
+             return 100;
+           } else {
+             return (3.05-x) / (3.05-1.40) * 100.0;
+           }
+  - platform: adc
+    pin: 35 # 32-39 (6 max)
+    name: "Moisture_13_02"
+    id: "moisture13_02"
+    update_interval: 56s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    filters:
+       - lambda: |-
+           if (x >= 3.05) {
+             return 0;
+           } else if (x <= 1.40) {
+             return 100;
+           } else {
+             return (3.05-x) / (3.05-1.40) * 100.0;
+           }
+
+  - platform: template
+    name: "Avg_Moisture_13"
+    id: "idavgmoisture_13"
+    unit_of_measurement: "%"
+    update_interval: 20s
+    accuracy_decimals: 0
+    lambda: |-
+      float moisture_01 = id(moisture13_01).state;
+      float moisture_02 = id(moisture13_02).state;
+      
+      return ((moisture_01 + moisture_02) / 2.0);

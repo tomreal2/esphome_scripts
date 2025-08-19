@@ -1,0 +1,12 @@
+#climate:
+#  - platform: bang_bang
+#    name: "Bang Bang Climate Controller"
+#    sensor: idtemperature7_1
+#    default_target_temperature_low: 70.0 °F
+#    default_target_temperature_high: 70.1 °F
+#    heat_action:
+#      - switch.turn_on: idpump_7
+#    cool_action:
+#      - switch.turn_off: idpump_7
+#    idle_action:
+#      - switch.turn_off: idpump_7
